@@ -27,4 +27,6 @@ void stringListDestroy(StringListPtr list);
 
 void stringListIterInit(StringListIteratorPtr it, StringListPtr list);
 
-NodePtr stringListIterNext(StringListIteratorPtr it);
+char* stringListIterNext(StringListIteratorPtr it);
+
+void stringListDestroyFree(StringListPtr list);

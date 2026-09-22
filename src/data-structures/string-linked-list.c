@@ -1,4 +1,4 @@
-#include "string_linked_list.h"
+#include "data-structures/string-linked-list.h"
 
 void stringListInit(StringListPtr list) {
     list->head = NULL;
@@ -16,7 +16,7 @@ ExitStatus stringListInsert(StringListPtr list, const char* data) {
 }
 
 void stringListPop(StringListPtr list) {
-    if(list->head == NULL ) {
+    if(list->head == NULL) {
         return;
     }
 
@@ -37,11 +37,18 @@ void stringListIterInit(StringListIteratorPtr it, StringListPtr list) {
 }
 
 
-NodePtr stringListIterNext(StringListIteratorPtr it) {
+char* stringListIterNext(StringListIteratorPtr it) {
     if(it->curr == NULL) {
         return NULL;
     }
     NodePtr tmp = it->curr;
     it->curr = it->curr->next;
-    return tmp;
+    return tmp->data;
+}
+
+void stringListDestroyFree(StringListPtr list) {
+    while(list->head != NULL) {
+        free(list->head->data);
+        stringListPop(list);
+    }
 }

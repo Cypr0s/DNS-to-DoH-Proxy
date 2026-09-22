@@ -1,5 +1,5 @@
 #include <stdint.h> // uint8_t, unint16_t, ...
-#include "data-structures/string_linked_list.h" // linked list implementation
+#include "data-structures/string-linked-list.h" // linked list implementation
 #include "error.h" // status codes
 #include "stdbool.h" // bool
 #include "common.h" // ARRAY_SIZE
