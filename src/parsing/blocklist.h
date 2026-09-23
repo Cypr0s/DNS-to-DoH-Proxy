@@ -15,11 +15,12 @@ ExitStatus parseBlockList(StringListPtr block_list, BlockListTreePtr root);
 typedef enum {
     BLOCKLIST_IS_FIRST_TOKEN = 0x01,
     BLOCKLIST_IS_ONLY_NUMBERS = 0x02,
-};
+} BlockListFlags;
 
 typedef struct {
     FilePrintContext file_print;
-    uint8_t flags;
+    BlockListFlags flags;
     uint8_t label_count;
     uint8_t label_length;
+    uint8_t token_length;
 } BlockListCtx, *BlockListCtxPtr;

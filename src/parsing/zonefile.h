@@ -1,4 +1,5 @@
 #include "data-structures/zone-file-tree.h"
+#include "error.h"
 
 #define ZONEFILE_COUNTER_MAX UINT32_MAX
 #define ZONEFILE_MIN 0U

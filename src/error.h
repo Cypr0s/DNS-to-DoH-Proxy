@@ -12,6 +12,12 @@
     }                               \
 } while(0);
 
+#define CHECK_ERR_AND_FREE(status, ...) do {    \
+    if(status != STATUS_SUCCESS) {              \
+        __VA_ARGS__;                            \
+    }                                           \
+} while(0);
+
 typedef enum {
     STATUS_SUCCESS = EXIT_SUCCESS,
     STATUS_FAILURE = EXIT_FAILURE,

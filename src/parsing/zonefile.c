@@ -1,4 +1,4 @@
-#include "parsing/zonelist.h"
+#include "parsing/zonefile.h"
 
 ExitStatus parseZoneList(StringListPtr block_list, BlockListTreePtr root) {
     StringListIterator it;
@@ -11,11 +11,6 @@ ExitStatus parseZoneList(StringListPtr block_list, BlockListTreePtr root) {
             return STATUS_EX_CONFIG;
         }
 
-        while((line_char_count = getdelim(&line_str, &line_str_capacity, '\n', fp)) != -1) {
-            if(line_str[0] == '\n') {
-                continue;
-            }
-        }
 
         fclose(fp);
         filename = stringListIterNext(&it);
