@@ -5,16 +5,16 @@
 typedef struct node {
     const char* data;
     struct node* next;
-} Node, *NodePtr;
+} StringNode, *StringNodePtr;
 
 
 typedef struct {
-    NodePtr head;
+    StringNodePtr head;
 } StringList, *StringListPtr;
 
 
 typedef struct {
-    NodePtr curr;
+    StringNodePtr curr;
 } StringListIterator, *StringListIteratorPtr;
 
 void stringListInit(StringListPtr list);

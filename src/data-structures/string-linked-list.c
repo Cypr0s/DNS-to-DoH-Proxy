@@ -5,7 +5,7 @@ void stringListInit(StringListPtr list) {
 }
 
 ExitStatus stringListInsert(StringListPtr list, const char* data) {
-    NodePtr node = (NodePtr) malloc(sizeof(Node));
+    StringNodePtr node = (StringNodePtr) malloc(sizeof(StringNode));
     if(node == NULL) {
         return STATUS_MALLOC_FAILURE;
     }
@@ -20,7 +20,7 @@ void stringListPop(StringListPtr list) {
         return;
     }
 
-    NodePtr tmp = list->head->next;
+    StringNodePtr tmp = list->head->next;
     free(list->head);
     list->head = tmp;
 }
@@ -41,7 +41,7 @@ char* stringListIterNext(StringListIteratorPtr it) {
     if(it->curr == NULL) {
         return NULL;
     }
-    NodePtr tmp = it->curr;
+    StringNodePtr tmp = it->curr;
     it->curr = it->curr->next;
     return tmp->data;
 }

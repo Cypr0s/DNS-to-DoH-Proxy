@@ -16,7 +16,6 @@ static const char* ignored_blocks[] = {
 
 
 static inline int8_t allowedCharacterCheck(const char c);
-static ExitStatus processEntry(const char* entry, size_t full_entry_length, BlockListTreePtr root);
 
 
 static inline int8_t allowedCharacterCheck(const char c) {
@@ -24,36 +23,9 @@ static inline int8_t allowedCharacterCheck(const char c) {
 }
 
 
-static ExitStatus processEntry(const char* entry, size_t full_entry_length, BlockListTreePtr root) {
-    size_t label_start = 0;
-
-    for(size_t i = 0; i < ARRAY_SIZE(ignored_blocks); i++) {
-        if(!strcmp(ignored_blocks[i], entry)) {
-            return STATUS_SUCCESS;
-        }
-    }
-    StringList s;
-    stringListInit(&s);
-    for (size_t i = 0; i <= full_entry_length; i++) {
-        if (i == full_entry_length || entry[i] == '.') {
-            size_t label_length = i - label_start;
-            char* label = malloc(sizeof(char) * (label_length + 1));
-            if(label == NULL) {
-                stringListDestroyFree(&s);
-                return STATUS_MALLOC_FAILURE;
-            }
-            memcpy(label, entry + label_start, label_length);
-            label[label_length] = '\0';
-            if(stringListInsert(&s, label)) {
-                free(label);
-                stringListDestroyFree(&s);
-                return STATUS_MALLOC_FAILURE;
-            }
-            label_start = i + 1;
-        }
-    }
+static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
     StringListIterator it;
-    stringListIterInit(&it, &s);
+    stringListIterInit(&it, list);
     char* val;
     BlockListTreePtr tmp = root;
     while((val = stringListIterNext(&it)) != NULL) {
@@ -63,15 +35,11 @@ static ExitStatus processEntry(const char* entry, size_t full_entry_length, Bloc
             child = blockListCreateNode(val);
 
             if(child == NULL) {
-                free(val);
-                stringListDestroyFree(&s);
                 return STATUS_MALLOC_FAILURE;
             }
 
             if(blockListAddChild(tmp, child) != STATUS_SUCCESS) {
                 free(child);
-                free(val);
-                stringListDestroyFree(&s);
                 return STATUS_MALLOC_FAILURE;
             }
         } else {
@@ -80,7 +48,166 @@ static ExitStatus processEntry(const char* entry, size_t full_entry_length, Bloc
 
         tmp = child;
     }
-    stringListDestroy(&s);
+    return STATUS_SUCCESS;
+}
+
+
+ExitStatus getBlockListToken(char** line, char** token) {
+    while(**line != '\0' && isspace((unsigned char)** line)) {
+        (*line)++;
+    }
+    if(**line == '\0') {
+        return STATUS_SUCCESS;
+    }
+
+    *token = *line;
+    uint8_t cnt = 0;
+    while(**line != '\0' && !isspace((unsigned char)** line)) {
+        (*line)++; cnt++;
+        if(cnt >= BLOCKLIST_MAX_TOKEN_LENGTH) {
+            return STATUS_EX_CONFIG;
+        }
+
+    }
+
+    if(**line != '\0') {
+        **line = '\0';
+        (*line)++;
+    }
+    
+    return STATUS_SUCCESS;
+}
+
+ExitStatus processToken(char* token, BlockListTreePtr root, BlockListCtxPtr ctx) {
+    for(size_t i = 0; i < ARRAY_SIZE(ignored_blocks); i++) {
+        if(!strcmp(ignored_blocks[i], token)) {
+        return STATUS_SUCCESS;
+        }
+    }
+    // check sizes, validate characters
+    StringList list;
+    stringListInit(&list);
+    ExitStatus e = checkAndLabelizeToken(token,  ctx, &list);
+
+    if(e) {
+        stringListDestroyFree(&list);
+        return e;
+    }
+
+    e = addListToTree(&list, root);
+    if(e) {
+        stringListDestroyFree(&list);
+        return e;
+    }
+    stringListDestroyFree(&list);
+    ctx->flags &= ~BLOCKLIST_IS_FIRST_TOKEN;
+    ctx->flags |= BLOCKLIST_IS_FIRST_TOKEN;
+    return STATUS_SUCCESS;
+}
+
+
+
+
+
+ExitStatus checkAndLabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr list) {
+    char* label_start = token;
+    while(*token != '\0') {
+        if(ctx->label_count > BLOCKLIST_MAX_LABEL_COUNT) {
+            stringListDestroyFree(list);
+            return STATUS_EX_CONFIG;
+        }
+
+        if(ctx->label_length > BLOCKLIST_MAX_LABEL_LENGTH) {
+            stringListDestroyFree(list);
+            return STATUS_EX_CONFIG;
+        }
+
+        if(*token == '.') {
+            if(ctx->flags & BLOCKLIST_IS_ONLY_NUMBERS) {
+                ctx->label_count++;
+                ctx->label_length = 0;
+                (*token)++;
+                label_start = token;
+                continue;
+            }
+
+            if(ctx->label_length == 0) {
+                stringListDestroyFree(list);
+                return STATUS_EX_CONFIG;
+            }
+
+            char* list_entry = malloc(sizeof(char) * (ctx->label_length + 1));
+            if(list_entry == NULL) {
+                stringListDestroyFree(list);
+                return STATUS_MALLOC_FAILURE;
+            }
+
+            *token = '\0';
+            strcpy(list_entry, label_start);
+
+            if(stringListInsert(list, list_entry)) {
+                free(list_entry);
+                stringListDestroyFree(list);
+                return STATUS_MALLOC_FAILURE;
+            }
+            ctx->label_count++;
+            ctx->label_length = 0;
+            token++;
+            label_start = token;
+            continue;
+        }
+
+        if((ctx->flags & BLOCKLIST_IS_FIRST_TOKEN) && *token == ':') {
+            stringListDestroyFree(list);
+            return STATUS_EX_CONFIG;
+        }
+
+        if((ctx->flags & BLOCKLIST_IS_ONLY_NUMBERS) && (*token < '0' || *token > '9')) {
+            ctx->flags &= ~BLOCKLIST_IS_ONLY_NUMBERS;
+        }
+
+        if(!allowedCharacterCheck(*token)) {
+            stringListDestroyFree(list);
+            return STATUS_EX_CONFIG;
+        }
+
+        ctx->label_length++;
+        token++;
+    }
+
+    return STATUS_SUCCESS;
+}
+
+
+static ExitStatus parseFile(FILE* fp, BlockListTreePtr root, BlockListCtxPtr ctx) {
+    char* line_str = NULL;
+    size_t line_str_capacity = 0;
+    while(getdelim(&line_str, &line_str_capacity, '\n', fp) != -1) {
+        removeComment(line_str, '#');
+        char* token = NULL;
+        char* tmp = line_str;
+        ExitStatus e = getBlockListToken(&tmp, &token);
+        if(e) {
+            free(line_str);
+            return e;
+        }
+        while(token != NULL) {
+            e = processToken(token, root, ctx);
+            if(e) {
+                free(line_str);
+                return e;
+            }
+            e = getBlockListToken(&tmp, &token);
+            if(e) {
+                free(line_str);
+                return e;
+            }
+            ctx->flags |= BLOCKLIST_IS_ONLY_NUMBERS;
+            ctx->label_count = 0;
+        }
+        ctx->file_print.line++;
+    }
+    free(line_str);
     return STATUS_SUCCESS;
 }
 
@@ -91,136 +218,18 @@ ExitStatus parseBlockList(StringListPtr block_list, BlockListTreePtr root) {
     char* filename = stringListIterNext(&it);
     FILE* fp;
     while(filename != NULL) {
+        BlockListCtx ctx = {
+            .file_print = {.filename = filename, .line = 1},
+            .flags = BLOCKLIST_IS_FIRST_TOKEN | BLOCKLIST_IS_ONLY_NUMBERS,
+            .label_count = 0,
+            .label_length = 0
+        };
         if(openFile(&fp, filename) != STATUS_SUCCESS) {
             // TODO
             return STATUS_EX_CONFIG;
         }
-        size_t line_cnt = 1;
-        char* line_str = 0;
-        size_t line_str_capacity = 0;
-        ssize_t line_char_count;
-        while((line_char_count = getdelim(&line_str, &line_str_capacity, '\n', fp)) != -1) {
-            if(line_str[0] == '\n') {
-                continue;
-            }
-            char entry[MAX_BLOCKLIST_ENTRY_LENGTH + 1];
-            size_t full_entry_length = 0;
-            int8_t only_digits = 1;
-            uint8_t label_count = 1;
-            int8_t label_length = 0;
-            int8_t is_first_entry = 1;
-            int8_t entry_has_colon = 0;
-            for(size_t i = 0; i < (size_t)line_char_count; i++) {
-                char c = line_str[i];
+        parseFile(fp, root, &ctx);
 
-                // character
-                if(full_entry_length >= MAX_BLOCKLIST_ENTRY_LENGTH) {
-                    // todo
-                    free(line_str);
-                    fclose(fp);
-                    return STATUS_EX_CONFIG;
-                }
-                // comment (breaks label approved characters so no check here)
-                if(c == '#') {
-                    break;
-                }
-
-                // whitespace token end
-                if(isspace((unsigned char)c)) {
-                    if(full_entry_length == 0) {
-                        continue;
-                    }
-                    if(only_digits || (is_first_entry && entry_has_colon) ) {
-                        full_entry_length = 0;
-                        only_digits = 1;
-                        label_count = 1;
-                        label_length = 0;
-                        is_first_entry = 0;
-                        entry_has_colon = 0;
-                        continue;
-                    }
-
-                    entry[full_entry_length] = '\0';
-                    if(processEntry(entry, full_entry_length, root) != STATUS_SUCCESS) {
-                        // TODO
-                        free(line_str);
-                        fclose(fp);
-                        return STATUS_MALLOC_FAILURE;
-                    }
-
-                    full_entry_length = 0;
-                    label_count = 1;
-                    label_length = 0;
-                    only_digits = 1;
-                    is_first_entry = 0;
-                    continue;
-                }
-
-                // check for allowed characters nums, letters, `-`, `.`, `_`
-        
-                if(is_first_entry) {
-                    if(!allowedCharacterCheck(c) && c != ':') {
-                        // TODO
-                        free(line_str);
-                        fclose(fp);
-                        return STATUS_EX_CONFIG;
-                    }
-                    if(c == ':') {
-                        entry_has_colon = 1;
-                    }
-                }  else {
-                    if(!allowedCharacterCheck(c)) {
-                        // TODO
-                        free(line_str);
-                        fclose(fp);
-                        return STATUS_EX_CONFIG;
-                    }
-                }
-
-                if(label_count > MAX_BLOCK_LIST_LABEL_COUNT) {
-                    // TODO
-                    free(line_str);
-                    fclose(fp);
-                    return STATUS_EX_CONFIG;
-                }
-
-                if(c == '.') {
-                    if(label_length == 0) {
-                        // TODO
-                        free(line_str);
-                        fclose(fp);
-                        return STATUS_EX_CONFIG;
-                    }
-                    label_count++;
-                    label_length = 0;
-                } else {
-                    label_length++;
-                    if(label_length > MAX_LABEL_LETTER_COUNT) {
-                        // TODO
-                        free(line_str);
-                        fclose(fp);
-                        return STATUS_EX_CONFIG;
-                    }
-                }
-                if(only_digits && c != '.' && (c <'0'|| c >'9')) {
-                    only_digits = 0;
-                }
-                
-
-                entry[full_entry_length++] = c;
-            
-            }
-            if(full_entry_length > 0 && !only_digits && !(is_first_entry && entry_has_colon)) {
-                entry[full_entry_length] = '\0';
-                if(processEntry(entry, full_entry_length, root)!= STATUS_SUCCESS) {
-                    free(line_str);
-                    fclose(fp);
-                    return STATUS_MALLOC_FAILURE;
-                }
-            }
-            line_cnt++;
-        }
-        free(line_str);
         fclose(fp);
         filename = stringListIterNext(&it);
     }

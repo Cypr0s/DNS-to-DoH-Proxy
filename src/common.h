@@ -1,13 +1,8 @@
+
+
 #define BINARY_NAME "isa-dnsproxy"
 
-#define DEFAULT_PORT 53U
-#define DEFAULT_TIMEOUT 3U
-#define TIMEOUT_MAX 3600U
-#define PORT_MAX 65535U
-#define ARGUMENT_MIN_PORT_TIMEOUT 1U
-
-#define MAX_BLOCKLIST_ENTRY_LENGTH 254
-#define MAX_BLOCK_LIST_LABEL_COUNT 127
-#define MAX_LABEL_LETTER_COUNT 63
-
 #define ARRAY_SIZE(arr) sizeof(arr) / sizeof(arr[0])
+
+
+#define HELP_MESAGE "aaaaaa"

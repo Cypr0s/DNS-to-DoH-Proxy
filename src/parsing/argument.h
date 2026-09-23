@@ -4,6 +4,13 @@
 #include "stdbool.h" // bool
 #include "common.h" // ARRAY_SIZE
 
+
+#define ARGUMENT_DEFAULT_PORT 53
+#define ARGUMENT_DEFAULT_TIMEOUT 3
+#define ARGUMENT_TIMEOUT_MAX 3600
+#define ARGUMENT_PORT_MAX UINT16_MAX
+#define ARGUMENT_MIN_PORT_TIMEOUT 1
+
 typedef enum {
     ARG_DOH_URL = 0x01,
     ARG_PORT = 0x02,
