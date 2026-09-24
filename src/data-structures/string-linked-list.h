@@ -3,7 +3,7 @@
 #include <string.h>
 
 typedef struct node {
-    const char* data;
+    char* data;
     struct node* next;
 } StringNode, *StringNodePtr;
 
@@ -19,7 +19,7 @@ typedef struct {
 
 void stringListInit(StringListPtr list);
 
-ExitStatus stringListInsert(StringListPtr list, const char* data);
+ExitStatus stringListInsert(StringListPtr list, char* data);
 
 void stringListPop(StringListPtr list);
 

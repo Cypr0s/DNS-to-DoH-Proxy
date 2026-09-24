@@ -8,7 +8,7 @@ int main(int argc, char*argv[]) {
         parsedArgsDtor(&parsed_args);
         return e;
     }
-    BlockListTreePtr root = blockListCreateNode(NULL);
+    BlockListTreePtr root = blockListCreateNode(NULL, 0);
     if(root != NULL) {
         parsedArgsDtor(&parsed_args);
         return e;

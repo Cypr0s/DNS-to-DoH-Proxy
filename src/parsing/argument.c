@@ -96,21 +96,9 @@ static ExitStatus setValue(ArgFlagsEnum flag, char* arg, ParsedArgsPtr parsed_ar
         }
 
         case(ARG_PORT): {
-            char* end;
-            errno = 0;
-            long port_num = strtol(arg, &end, 10);
-            if(end == arg) {
+            long port_num = convertStrToNum(arg, ARGUMENT_MIN_PORT_TIMEOUT, ARGUMENT_PORT_MAX);
+            if(port_num == -1) {
                 PRINT_ARGUMENT_PARSE_ERROR("Value of argument `-p` - `%s` is invalid", arg);
-                return STATUS_EX_USAGE;
-            }
-
-            if(errno == ERANGE || port_num < ARGUMENT_MIN_PORT_TIMEOUT || port_num > ARGUMENT_PORT_MAX) {
-                PRINT_ARGUMENT_PARSE_ERROR(
-                    "Value of argument `-p` - `%s` is invalid - port must be between `%d` and `%d`", 
-                    arg, 
-                    ARGUMENT_MIN_PORT_TIMEOUT, 
-                    ARGUMENT_PORT_MAX
-                );
                 return STATUS_EX_USAGE;
             }
             parsed_args->port = (uint16_t) port_num;
@@ -135,21 +123,9 @@ static ExitStatus setValue(ArgFlagsEnum flag, char* arg, ParsedArgsPtr parsed_ar
         }
 
         case(ARG_TIMEOUT): {
-            char* end;
-            errno = 0;
-            long timeout = strtol(arg, &end, 10);
-            if(end == arg) {
+            long timeout = convertStrToNum(arg, ARGUMENT_MIN_PORT_TIMEOUT, ARGUMENT_TIMEOUT_MAX);
+            if(timeout == -1) {
                 PRINT_ARGUMENT_PARSE_ERROR("Value of argument `-w` - `%s` is invalid", arg);
-                return STATUS_EX_USAGE;
-            }
-
-            if(errno == ERANGE || timeout < ARGUMENT_MIN_PORT_TIMEOUT || timeout > ARGUMENT_TIMEOUT_MAX) {
-                PRINT_ARGUMENT_PARSE_ERROR(
-                    "Value of argument `-w` - `%s` is invalid - port must be between `%d` and `%d`", 
-                    arg, 
-                    ARGUMENT_MIN_PORT_TIMEOUT, 
-                    ARGUMENT_TIMEOUT_MAX
-                );
                 return STATUS_EX_USAGE;
             }
             parsed_args->timeout_time = (uint16_t) timeout;

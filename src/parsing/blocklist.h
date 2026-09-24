@@ -18,9 +18,6 @@ typedef enum {
 } BlockListFlags;
 
 typedef struct {
-    FilePrintContext file_print;
+    DNSFileContext dns_context;
     BlockListFlags flags;
-    uint8_t label_count;
-    uint8_t label_length;
-    uint8_t token_length;
 } BlockListCtx, *BlockListCtxPtr;

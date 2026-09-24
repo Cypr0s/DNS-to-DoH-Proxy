@@ -4,7 +4,7 @@ void stringListInit(StringListPtr list) {
     list->head = NULL;
 }
 
-ExitStatus stringListInsert(StringListPtr list, const char* data) {
+ExitStatus stringListInsert(StringListPtr list, char* data) {
     StringNodePtr node = (StringNodePtr) malloc(sizeof(StringNode));
     if(node == NULL) {
         return STATUS_MALLOC_FAILURE;
@@ -51,4 +51,5 @@ void stringListDestroyFree(StringListPtr list) {
         free(list->head->data);
         stringListPop(list);
     }
+    list->head = NULL;
 }

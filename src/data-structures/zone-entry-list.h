@@ -1,8 +1,9 @@
 #include <stdint.h>
+#include "error.h"
 
 typedef struct zone_node {
-    ZoneEntry zone_entry;
-    struct node* next;
+    ZoneEntryPtr zone_entry;
+    struct zone_node* next;
 } ZoneNode, *ZoneNodePtr;
 
 
@@ -30,21 +31,26 @@ typedef struct {
     uint32_t minimum; // 
 } SOAEntry, *SOAEntryPtr;
 
+
 typedef struct {
     char* nsdmame;
-} NSEntry, *NSntryPtr;
+} NSEntry, *NSEntryPtr;
+
 
 typedef struct {
     char* address;
 } AEntry, *AEntryPtr;
 
+
 typedef struct {
     char* address;
 } AAAAEntry, *AAAAEntryPtr;
 
+
 typedef struct {
     char* cname;
-} CNAMEEntry, CNAMEEntryPtr;
+} CNAMEEntry, *CNAMEEntryPtr;
+
 
 typedef struct {
     int16_t preference;
@@ -59,7 +65,23 @@ typedef struct {
         CNAMEEntryPtr cname_entry;
         AAAAEntryPtr aaaa_entry;
         AEntryPtr a_entry;
-        NSntryPtr ns_entry;
+        NSEntryPtr ns_entry;
         SOAEntryPtr soa_entry;
     } entry;
 } ZoneEntry, *ZoneEntryPtr;
+
+typedef struct {
+    ZoneNodePtr curr;
+} ZoneListIterator, *ZoneListIteratorPtr;
+
+void zoneListInit(ZoneListPtr list);
+
+ExitStatus zoneListInsert(ZoneListPtr list, ZoneEntryPtr zone_entry);
+
+void zoneListPop(ZoneListPtr list);
+
+void zoneListDestroy(ZoneListPtr list);
+
+void zoneListIterInit(ZoneListIteratorPtr it, ZoneListPtr list);
+
+ZoneEntryPtr zoneListIterNext(ZoneListIteratorPtr it);

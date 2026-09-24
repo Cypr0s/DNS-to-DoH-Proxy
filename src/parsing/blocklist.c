@@ -14,22 +14,22 @@ static const char* ignored_blocks[] = {
     "ip6-allhosts"
 };
 
-static inline ExitStatus checkTokenOverFlow(BlockListCtxPtr ctx) {
-    return (ctx->token_length >BLOCKLIST_MAX_TOKEN_LENGTH ||
-        ctx->label_count > BLOCKLIST_MAX_LABEL_COUNT ||
-        ctx->label_length > BLOCKLIST_MAX_LABEL_LENGTH) ? 
-        STATUS_EX_CONFIG : STATUS_SUCCESS;
-}
+inline ExitStatus checkTokenOverFlow(BlockListCtxPtr ctx);
+inline int8_t allowedCharacterCheck(const char c);
+static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root);
+static ExitStatus processToken(char* token, BlockListTreePtr root, BlockListCtxPtr ctx);
+static ExitStatus AddLabelToList(char* label, BlockListCtxPtr ctx, StringListPtr list);
+static ExitStatus LabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr list);
+static ExitStatus parseFile(FILE* fp, BlockListTreePtr root, BlockListCtxPtr ctx);
 
-static inline int8_t allowedCharacterCheck(const char c);
 
-
-static inline int8_t allowedCharacterCheck(const char c) {
-    return isalnum((unsigned char)c) || c == '.' || c == '_' || c == '-';
-}
 
 
 static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
+    if(list->head == NULL) {
+        return STATUS_SUCCESS;
+    }
+
     StringListIterator it;
     stringListIterInit(&it, list);
     char* val;
@@ -38,7 +38,7 @@ static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
         BlockListTreePtr child = blockListFindNode(tmp, val);
 
         if(child == NULL) {
-            child = blockListCreateNode(val);
+            child = blockListCreateNode(val, 0);
 
             if(child == NULL) {
                 return STATUS_MALLOC_FAILURE;
@@ -54,6 +54,7 @@ static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
 
         tmp = child;
     }
+    tmp->is_blocked = 1;
     return STATUS_SUCCESS;
 }
 
@@ -67,7 +68,7 @@ static ExitStatus processToken(char* token, BlockListTreePtr root, BlockListCtxP
     // check sizes, validate characters
     StringList list;
     stringListInit(&list);
-    ExitStatus e = checkAndLabelizeToken(token,  ctx, &list);
+    ExitStatus e = LabelizeToken(token,  ctx, &list);
     CHECK_ERR_AND_FREE(e, stringListDestroyFree(&list););
     
     // add to tree
@@ -79,50 +80,51 @@ static ExitStatus processToken(char* token, BlockListTreePtr root, BlockListCtxP
 }
 
 
+static ExitStatus AddLabelToList(char* label, BlockListCtxPtr ctx, StringListPtr list) {
+    char* list_entry = malloc(sizeof(char) * (ctx->dns_context.label_length + 1));
+    if(list_entry == NULL) {
+        return STATUS_MALLOC_FAILURE;
+    }
 
-static ExitStatus checkAndLabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr list) {
+    strcpy(list_entry, label);
+
+    if(stringListInsert(list, list_entry)) {
+        free(list_entry);
+        return STATUS_MALLOC_FAILURE;
+    }
+    return STATUS_SUCCESS;
+}
+
+
+static ExitStatus LabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr list) {
     char* label_start = token;
     while(*token != '\0') {
-        ctx->token_length++;
+        ctx->dns_context.token_length++;
         ExitStatus e = checkTokenOverFlow(ctx);
-        CHECK_ERR_AND_FREE(e, stringListDestroyFree(list););
+        CHECK_ERR(e);
 
         if(*token == '.') {
-            // function insert into list, TODO
-            if(ctx->flags & BLOCKLIST_IS_ONLY_NUMBERS) {
-                ctx->label_count++;
-                ctx->label_length = 0;
-                (*token)++;
-                label_start = token;
-                continue;
-            }
-
-            if(ctx->label_length == 0) {
-                return STATUS_EX_CONFIG;
-            }
-
-            char* list_entry = malloc(sizeof(char) * (ctx->label_length + 1));
-            if(list_entry == NULL) {
-                return STATUS_MALLOC_FAILURE;
+            if(ctx->dns_context.label_length == 0) {
+                if(*(token + 1) == '\0') {
+                    break;
+                } else {
+                    return STATUS_EX_CONFIG;
+                }
             }
 
             *token = '\0';
-            strcpy(list_entry, label_start);
-
-            if(stringListInsert(list, list_entry)) {
-                free(list_entry);
-                return STATUS_MALLOC_FAILURE;
-            }
-            ctx->label_count++;
-            ctx->label_length = 0;
+            e = AddLabelToList(label_start, ctx, list);
+            CHECK_ERR(e);
+            ctx->dns_context.label_count++;
+            ctx->dns_context.label_length = 0;
             token++;
             label_start = token;
             continue;
         }
 
         if((ctx->flags & BLOCKLIST_IS_FIRST_TOKEN) && *token == ':') {
-            stringListDestroyFree(list);
-            return STATUS_EX_CONFIG;
+            stringListDestroyFree(list);// makes so nothing will be inserted into tree, without error (essentially skip)
+            return STATUS_SUCCESS;
         }
 
         if((ctx->flags & BLOCKLIST_IS_ONLY_NUMBERS) && (*token < '0' || *token > '9')) {
@@ -130,13 +132,21 @@ static ExitStatus checkAndLabelizeToken(char* token, BlockListCtxPtr ctx, String
         }
 
         if(!allowedCharacterCheck(*token)) {
-            stringListDestroyFree(list);
             return STATUS_EX_CONFIG;
         }
-        ctx->label_length++;
+
+        ctx->dns_context.label_length++;
         token++;
     }
-    if()
+
+    if(ctx->dns_context.label_length > 0) {
+        ExitStatus e = AddLabelToList(label_start, ctx, list);
+        CHECK_ERR(e);
+    }
+
+    if(ctx->flags & BLOCKLIST_IS_ONLY_NUMBERS) {
+        stringListDestroyFree(list); // makes so nothing will be inserted into tree, without error (essentially skip)
+    }
 
     return STATUS_SUCCESS;
 }
@@ -146,6 +156,7 @@ static ExitStatus parseFile(FILE* fp, BlockListTreePtr root, BlockListCtxPtr ctx
     char* line_str = NULL;
     size_t line_str_capacity = 0;
     while(getdelim(&line_str, &line_str_capacity, '\n', fp) != -1) {
+        ctx->flags |= BLOCKLIST_IS_FIRST_TOKEN;
         removeComment(line_str, '#');
         char* token = NULL;
         char* tmp = line_str;
@@ -156,12 +167,12 @@ static ExitStatus parseFile(FILE* fp, BlockListTreePtr root, BlockListCtxPtr ctx
                 CHECK_ERR_AND_FREE(e, free(line_str););
             }
             ctx->flags |= BLOCKLIST_IS_ONLY_NUMBERS;
-            ctx->label_count = 0;
-            ctx->label_length = 0;
-            ctx->token_length = 0;
+            ctx->dns_context.label_count = 0;
+            ctx->dns_context.label_length = 0;
+            ctx->dns_context.token_length = 0;
     
         } while(token != NULL);
-        ctx->file_print.line++;
+        ctx->dns_context.line++;
     }
     free(line_str);
     return STATUS_SUCCESS;
@@ -175,18 +186,16 @@ ExitStatus parseBlockList(StringListPtr block_list, BlockListTreePtr root) {
     FILE* fp;
     while(filename != NULL) {
         BlockListCtx ctx = {
-            .file_print = {.filename = filename, .line = 1},
+            .dns_context = {.filename = filename, .line = 1, .label_count = 0, .label_length = 0, .token_length = 0},
             .flags = BLOCKLIST_IS_FIRST_TOKEN | BLOCKLIST_IS_ONLY_NUMBERS,
-            .label_count = 0,
-            .label_length = 0
         };
         if(openFile(&fp, filename) != STATUS_SUCCESS) {
             // TODO
             return STATUS_EX_CONFIG;
         }
-        parseFile(fp, root, &ctx);
-
+        ExitStatus e = parseFile(fp, root, &ctx);
         fclose(fp);
+        CHECK_ERR(e);
         filename = stringListIterNext(&it);
     }
     return STATUS_SUCCESS;

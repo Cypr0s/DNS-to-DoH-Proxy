@@ -3,6 +3,7 @@
 #include "error.h" // status codes
 #include "stdbool.h" // bool
 #include "common.h" // ARRAY_SIZE
+#include "util/strings.h"
 
 
 #define ARGUMENT_DEFAULT_PORT 53

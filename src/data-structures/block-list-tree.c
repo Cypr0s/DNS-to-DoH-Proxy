@@ -15,7 +15,7 @@ BlockListTreePtr blockListFindNode(BlockListTreePtr node, const char* val) {
     return NULL;
 }
 
-BlockListTreePtr blockListCreateNode(const char* val) {
+BlockListTreePtr blockListCreateNode(const char* val, uint8_t is_blocked) {
     BlockListTreePtr node = malloc(sizeof(BlockListTree));
 
     if(node == NULL) {
@@ -25,6 +25,7 @@ BlockListTreePtr blockListCreateNode(const char* val) {
     node->value = val;
     node->child_count = 0;
     node->children = NULL;
+    node->is_blocked = is_blocked;
     return node;
 }
 
