@@ -23,3 +23,5 @@ typedef struct {
     int32_t ttl;
     char* current_owner;
 } ZoneFileListCtx, *ZoneFileListCtxPtr;
+
+ExitStatus parseZoneList(StringListPtr zone_list, ZoneFileListTreePtr root);

@@ -2,7 +2,7 @@
 
 
 // https://github.com/Cypr0s/CyprSH/blob/main/src/data-structures/abstract-syntax-tree.c simplified
-BlockListTreePtr blockListFindNode(BlockListTreePtr node, const char* val) {
+BlockListTreePtr blockListTreeFindNode(BlockListTreePtr node, const char* val) {
     if(node == NULL) {
         return NULL;
     }
@@ -15,7 +15,7 @@ BlockListTreePtr blockListFindNode(BlockListTreePtr node, const char* val) {
     return NULL;
 }
 
-BlockListTreePtr blockListCreateNode(const char* val, uint8_t is_blocked) {
+BlockListTreePtr blockListTreeCreateNode(const char* val, uint8_t is_blocked) {
     BlockListTreePtr node = malloc(sizeof(BlockListTree));
 
     if(node == NULL) {
@@ -29,7 +29,7 @@ BlockListTreePtr blockListCreateNode(const char* val, uint8_t is_blocked) {
     return node;
 }
 
-ExitStatus blockListAddChild(BlockListTreePtr parent, BlockListTreePtr child) {
+ExitStatus blockListTreeAddChild(BlockListTreePtr parent, BlockListTreePtr child) {
     if(parent == NULL || child == NULL) {
         return STATUS_FAILURE;
     }
@@ -48,7 +48,7 @@ ExitStatus blockListAddChild(BlockListTreePtr parent, BlockListTreePtr child) {
 }
 
 
-void blockListDeleteTree(BlockListTreePtr node) {
+void blockListTreeDelete(BlockListTreePtr node) {
     if(node == NULL) {
         return;
     }

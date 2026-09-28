@@ -35,16 +35,16 @@ static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
     char* val;
     BlockListTreePtr tmp = root;
     while((val = stringListIterNext(&it)) != NULL) {
-        BlockListTreePtr child = blockListFindNode(tmp, val);
+        BlockListTreePtr child = blockListTreeFindNode(tmp, val);
 
         if(child == NULL) {
-            child = blockListCreateNode(val, 0);
+            child = blockListTreeCreateNode(val, 0);
 
             if(child == NULL) {
                 return STATUS_MALLOC_FAILURE;
             }
 
-            if(blockListAddChild(tmp, child) != STATUS_SUCCESS) {
+            if(blockListTreeAddChild(tmp, child) != STATUS_SUCCESS) {
                 free(child);
                 return STATUS_MALLOC_FAILURE;
             }

@@ -1,25 +1,14 @@
 #include "main.h"
 
-int main(int argc, char*argv[]) {
+int main(int argc, char* argv[]) {
     ParsedArgs parsed_args;
     parsedArgsCtor(&parsed_args);
     ExitStatus e = parseArguments(argc, argv, &parsed_args);
-    if(e != STATUS_SUCCESS) {
-        parsedArgsDtor(&parsed_args);
-        return e;
-    }
-    BlockListTreePtr root = blockListCreateNode(NULL, 0);
-    if(root != NULL) {
-        parsedArgsDtor(&parsed_args);
-        return e;
-    }
-    e = parseBlockList(&parsed_args.block_lists, root);
-
-    if(e != STATUS_SUCCESS) {
-        parsedArgsDtor(&parsed_args);
-        blockListDeleteTree(root);
-        return e;
-    }
-    parsedArgsDtor(&parsed_args);
-    return EXIT_SUCCESS;
+    CHECK_ERR_AND_FREE(e, parsedArgsDtor(&parsed_args));
+    ProxyServer server = {0};
+    e = proxyServerInit(&parsed_args, &server);
+    CHECK_ERR_AND_FREE(e, proxyServerDtor(&server););
+    e = proxyServerStart(&server);
+    proxyServerDtor(&server);
+    return STATUS_SUCCESS;
 }

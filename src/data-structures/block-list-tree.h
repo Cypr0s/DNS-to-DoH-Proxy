@@ -10,10 +10,10 @@ typedef struct blocklist_tree_node {
     struct blocklist_tree_node** children;
 } BlockListTree, *BlockListTreePtr;
 
-BlockListTreePtr blockListFindNode(BlockListTreePtr node, const char* val);
+BlockListTreePtr blockListTreeFindNode(BlockListTreePtr node, const char* val);
 
-BlockListTreePtr blockListCreateNode(const char* val, uint8_t is_blocked);
+BlockListTreePtr blockListTreeCreateNode(const char* val, uint8_t is_blocked);
 
-ExitStatus blockListAddChild(BlockListTreePtr parent, BlockListTreePtr child);
+ExitStatus blockListTreeAddChild(BlockListTreePtr parent, BlockListTreePtr child);
 
-void blockListDeleteTree(BlockListTreePtr node);
+void blockListTreeDelete(BlockListTreePtr node);

@@ -13,3 +13,11 @@ long convertStrToNum(char* input, size_t min_boundary, size_t max_boundary) {
     }
     return output;
 }
+
+uint16_t bytesToUShort(char* input) {
+    return (uint16_t)((input[0] << 8) | input[1]); 
+}
+
+uint32_t bytesToUint(char* input) {
+    return (uint32_t)((input[0] << 24) | (input[1] << 16) | (input[2] << 8) | input[3]); 
+}

@@ -10,8 +10,6 @@
 #define BLOCKLIST_MAX_LABEL_COUNT 127
 #define BLOCKLIST_MAX_LABEL_LENGTH 63
 
-ExitStatus parseBlockList(StringListPtr block_list, BlockListTreePtr root);
-
 typedef enum {
     BLOCKLIST_IS_FIRST_TOKEN = 0x01,
     BLOCKLIST_IS_ONLY_NUMBERS = 0x02,
@@ -21,3 +19,5 @@ typedef struct {
     DNSFileContext dns_context;
     BlockListFlags flags;
 } BlockListCtx, *BlockListCtxPtr;
+
+ExitStatus parseBlockList(StringListPtr block_list, BlockListTreePtr root);
