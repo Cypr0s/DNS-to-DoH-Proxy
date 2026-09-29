@@ -1,3 +1,6 @@
+#ifndef ZONE_ENTRY_LIST_H
+#define ZONE_ENTRY_LIST_H
+
 #include <stdint.h>
 #include "error.h"
 
@@ -85,3 +88,5 @@ void zoneListDestroy(ZoneListPtr list);
 void zoneListIterInit(ZoneListIteratorPtr it, ZoneListPtr list);
 
 ZoneEntryPtr zoneListIterNext(ZoneListIteratorPtr it);
+
+#endif // ZONE_ENTRY_LIST_H

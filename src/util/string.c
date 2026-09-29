@@ -1,4 +1,4 @@
-#include "util/strings.h"
+#include "util/string.h"
 
 long convertStrToNum(char* input, size_t min_boundary, size_t max_boundary) {
     char* end;

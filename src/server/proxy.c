@@ -1,5 +1,27 @@
 #include "server/proxy.h"
 
+// https://www.ibm.com/docs/en/i/7.1.0?topic=designs-using-poll-instead-select
+static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections) {
+    int new_fd = -1;
+    while(1) {
+        struct sockaddr_storage addr;
+        socklen_t addr_len = sizeof(struct sockaddr_storage);
+        new_fd = accept(fd, (struct sockaddr*)&addr, &addr_len);
+        if(new_fd < 0)  {
+            if(errno == EWOULDBLOCK || errno == EAGAIN) {
+                break;
+            }
+            // TODO PRINT
+            return STATUS_FAILURE;
+        }
+        Connection c = {.type = TCP_CLIENT, .timeout = 0, .address = addr, .address_size = addr_len};
+        struct pollfd poll_fd = {.fd = new_fd, .events = POLLIN, .revents = 0}; 
+        connectionVectorInsert(connections, poll_fd, c);
+    }
+    return STATUS_SUCCESS;
+}
+
+
 static ExitStatus handleEvents(ProxyServerPtr server, int event_count) {
     for(size_t i = 0; i < server->connections->curr_size; i++) {
         if(event_count == 0) {
@@ -7,10 +29,11 @@ static ExitStatus handleEvents(ProxyServerPtr server, int event_count) {
         }
         switch (server->connections->connections[i].type) {
         case UDP_LISTEN:
-            size_t size = recvfrom();
+            processUDPMessages();
+            size_t size = recvfrom(server->connections->poll_fds[i].fd, );
             break;
-        case TCP_LISTEN;
-            accept();
+        case TCP_LISTEN:
+            ExitStatus e = acceptConnections(server->connections->poll_fds[i].fd, server);
         default:
             break;
         }

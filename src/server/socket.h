@@ -1,5 +1,9 @@
+#ifndef SERVER_SOCKET_H
+#define SERVER_SOCKET_H
+
 #include "error.h"  
 #include <sys/socket.h> // sockets
+#include <sys/ioctl.h>
 #include <unistd.h> // close
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -17,8 +21,8 @@ typedef enum {
     NETWORK_BOTH = AF_INET6,
 } NetworkType;
 
-#define CONNECTION_REQUESTS_MAX 64 // 1 udp, 1 tcp - 64 client
-#define UDP_SOCKET_POS 0
-#define TCP_SOCKET_POS 1
+#define CONNECTION_REQUESTS_MAX 64 //  64 client
 
 ExitStatus prepareSockets(ParsedArgsPtr parsed_arguments, ConnectionVectorPtr connections);
+
+#endif // SERVER_SOCKET_H

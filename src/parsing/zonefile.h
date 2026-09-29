@@ -1,8 +1,11 @@
+#ifndef PARSING_ZONEFILE_H
+#define PARSING_ZONEFILE_H
+
 #include "data-structures/zone-file-tree.h"
 #include "error.h"
 #include "data-structures/string-linked-list.h"
 #include "util/file.h"
-#include "util/strings.h"
+#include "util/string.h"
 #include <ctype.h>
 
 #define ZONEFILE_COUNTER_MAX UINT32_MAX
@@ -25,3 +28,5 @@ typedef struct {
 } ZoneFileListCtx, *ZoneFileListCtxPtr;
 
 ExitStatus parseZoneList(StringListPtr zone_list, ZoneFileListTreePtr root);
+
+#endif // PARSING_ZONEFILE_H

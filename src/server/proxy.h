@@ -1,4 +1,7 @@
-#include "server/sockets.h"
+#ifndef SERVER_PROXY_H
+#define SERVER_PROXY_H
+
+#include "server/socket.h"
 #include "parsing/zonefile.h"
 #include "parsing/blocklist.h"
 #include "parsing/argument.h"
@@ -14,3 +17,5 @@ ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server);
 ExitStatus proxyServerStart(ProxyServerPtr server);
 
 void proxyServerDtor(ProxyServerPtr server);
+
+#endif // SERVER_PROXY_H

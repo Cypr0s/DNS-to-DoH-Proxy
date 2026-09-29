@@ -1,3 +1,6 @@
+#ifndef STRING_LINKED_LIST_H
+#define STRING_LINKED_LIST_H
+
 #include <stdio.h> // size_t
 #include "error.h"
 #include <string.h>
@@ -30,3 +33,5 @@ void stringListIterInit(StringListIteratorPtr it, StringListPtr list);
 char* stringListIterNext(StringListIteratorPtr it);
 
 void stringListDestroyFree(StringListPtr list);
+
+#endif // STRING_LINKED_LIST_H

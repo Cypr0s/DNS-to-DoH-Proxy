@@ -1,3 +1,6 @@
+#ifndef PARSING_BLOCKLIST_H
+#define PARSING_BLOCKLIST_H
+
 #include "data-structures/string-linked-list.h"
 #include "util/file.h"
 #include "data-structures/block-list-tree.h"
@@ -21,3 +24,5 @@ typedef struct {
 } BlockListCtx, *BlockListCtxPtr;
 
 ExitStatus parseBlockList(StringListPtr block_list, BlockListTreePtr root);
+
+#endif // PARSING_BLOCKLIST_H

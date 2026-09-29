@@ -1,3 +1,6 @@
+#ifndef ZONE_FILE_TREE_H
+#define ZONE_FILE_TREE_H
+
 #include "zone-entry-list.h"
 typedef struct zonefile_tree_node {
     char* value;
@@ -7,3 +10,5 @@ typedef struct zonefile_tree_node {
     struct zonefile_tree_node** children;
     struct zonefile_tree_node* parent;
 } ZoneFileListTree, *ZoneFileListTreePtr;
+
+#endif // ZONE_FILE_TREE_H

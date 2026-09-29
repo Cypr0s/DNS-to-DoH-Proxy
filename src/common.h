@@ -1,4 +1,5 @@
-
+#ifndef COMMON_H
+#define COMMON_H
 
 // data structures
 #define ARRAY_SIZE(arr) sizeof(arr) / sizeof(arr[0])
@@ -11,7 +12,10 @@
 #define DNS_MAX_LABEL_LENGTH 63
 #define LONGEST_IPV6 45
 #define POLL_MILISECONDS 150
+#define DNS_QUERY_MIN_LENGHT 12
 
 // util
 #define HELP_MESAGE "aaaaaa"
 #define BINARY_NAME "isa-dnsproxy"
+
+#endif // COMMON_H

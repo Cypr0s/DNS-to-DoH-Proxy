@@ -1,3 +1,6 @@
+#ifndef CONNECTION_DYNAMIC_ARR_H
+#define CONNECTION_DYNAMIC_ARR_H
+
 #include <stdio.h>
 #include "common.h"
 #include <poll.h>
@@ -15,6 +18,8 @@ typedef enum {
 typedef struct connection_node {
     int32_t timeout;
     ConnectionType type;
+    struct sockaddr_storage address;
+    int address_size;
 } Connection, *ConnectionPtr;
 
 typedef struct {
@@ -31,3 +36,5 @@ ExitStatus connectionVectorInsert(ConnectionVectorPtr vector, struct pollfd poll
 ExitStatus connectionVectorDelete(ConnectionVectorPtr vector, int fd);
 
 void connectionVectorClean(ConnectionVectorPtr vector);
+
+#endif // CONNECTION_DYNAMIC_ARR_H

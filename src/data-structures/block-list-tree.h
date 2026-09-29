@@ -1,3 +1,6 @@
+#ifndef BLOCK_LIST_TREE_H
+#define BLOCK_LIST_TREE_H
+
 #include <stdio.h>
 #include <string.h>
 #include "error.h"
@@ -17,3 +20,5 @@ BlockListTreePtr blockListTreeCreateNode(const char* val, uint8_t is_blocked);
 ExitStatus blockListTreeAddChild(BlockListTreePtr parent, BlockListTreePtr child);
 
 void blockListTreeDelete(BlockListTreePtr node);
+
+#endif // BLOCK_LIST_TREE_H

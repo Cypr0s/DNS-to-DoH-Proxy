@@ -1,3 +1,6 @@
+#ifndef UTIL_FILE_H
+#define UTIL_FILE_H
+
 #include <stdio.h>
 #include "error.h"
 #include <stdint.h>
@@ -27,3 +30,5 @@ inline ExitStatus checkTokenOverFlow(DNSFileContextPtr ctx) {
 inline int8_t allowedCharacterCheck(const char c) {
     return isalnum((unsigned char)c) || c == '.' || c == '_' || c == '-';
 }
+
+#endif // UTIL_FILE_H

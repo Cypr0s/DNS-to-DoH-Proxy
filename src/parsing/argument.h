@@ -1,9 +1,12 @@
+#ifndef PARSING_ARGUMENTS_H
+#define PARSING_ARGUMENTS_H
+
 #include <stdint.h> // uint8_t, unint16_t, ...
 #include "data-structures/string-linked-list.h" // linked list implementation
 #include "error.h" // status codes
 #include "stdbool.h" // bool
 #include "common.h" // ARRAY_SIZE
-#include "util/strings.h"
+#include "util/string.h"
 
 
 #define ARGUMENT_DEFAULT_PORT 53
@@ -46,4 +49,6 @@ void parsedArgsCtor(ParsedArgsPtr parsed_args);
 void parsedArgsDtor(ParsedArgsPtr parsed_args);
 
 ExitStatus parseArguments(int argc, char** argv, ParsedArgsPtr parsed_args);
+
+#endif // PARSING_ARGUMENTS_H
 

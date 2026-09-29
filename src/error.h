@@ -1,4 +1,5 @@
-
+#ifndef ERROR_H
+#define ERROR_H
 
 #include <stdlib.h>
 #include <errno.h>
@@ -32,3 +33,5 @@ void printErrorMsg(char* format, ...);
 
 #define PRINT_BLOCKLIST_PARSE_ERROR(file, line, msg) (printErrorMsg("%s:%s:%s", file, line, msg))
 #define PRINT_ARGUMENT_PARSE_ERROR(format, ...) (printErrorMsg(format, __VA_ARGS__))
+
+#endif // ERROR_H

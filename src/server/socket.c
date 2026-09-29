@@ -1,4 +1,4 @@
-#include "server/sockets.h"
+#include "server/socket.h"
 
 ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
     *fd = socket(n, t, 0);
@@ -14,6 +14,14 @@ ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
             close(*fd);
             return STATUS_FAILURE;
         }
+    }
+
+    // https://www.ibm.com/docs/en/i/7.1.0?topic=designs-using-poll-instead-select
+    val = 1;
+    int rc = ioctl(*fd, FIONBIO, (char *)&val);
+    if (rc < 0) {
+        close(*fd);
+        return STATUS_FAILURE;
     }
     return STATUS_SUCCESS;
 }
