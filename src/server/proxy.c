@@ -27,17 +27,25 @@ static ExitStatus handleEvents(ProxyServerPtr server, int event_count) {
         if(event_count == 0) {
             break;
         }
-        switch (server->connections->connections[i].type) {
-        case UDP_LISTEN:
-            processUDPMessages();
-            size_t size = recvfrom(server->connections->poll_fds[i].fd, );
-            break;
-        case TCP_LISTEN:
-            ExitStatus e = acceptConnections(server->connections->poll_fds[i].fd, server);
-        default:
-            break;
+        if(server->connections->poll_fds[i].revents & POLLIN) {
+            switch (server->connections->connections[i].type) {
+            case UDP_LISTEN:
+                processUDPMessages();
+                size_t size = recvfrom(server->connections->poll_fds[i].fd, );
+                event_count--;
+                break;
+            case TCP_LISTEN:
+                ExitStatus e = acceptConnections(server->connections->poll_fds[i].fd, server);
+                event_count--;
+            default:
+                break;
+            }
         }
     }
+}
+
+static ExitStatus handleDNSQuery(ProxyServer server, char* bytes, size_t message_size) {
+    return;
 }
 
 ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {

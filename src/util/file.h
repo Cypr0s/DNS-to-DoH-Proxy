@@ -5,6 +5,7 @@
 #include "error.h"
 #include <stdint.h>
 #include "common.h"
+#include <ctype.h>
 
 ExitStatus openFile(FILE** fp, const char* filename);
 

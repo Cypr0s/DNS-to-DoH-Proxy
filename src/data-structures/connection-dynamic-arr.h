@@ -6,13 +6,13 @@
 #include <poll.h>
 #include "error.h"
 #include <unistd.h> // close
+#include <stdint.h>
+#include <sys/socket.h>
 
 typedef enum {
     UDP_LISTEN,
     TCP_LISTEN,
     TCP_CLIENT,
-    TCP_UPSTREAM,
-    UDP_UPSTREAM
 } ConnectionType;
 
 typedef struct connection_node {

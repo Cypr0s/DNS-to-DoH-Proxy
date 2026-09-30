@@ -1,0 +1,12 @@
+
+$ORIGIN home.lan.
+$TTL 3600
+@       IN SOA   ns1.home.lan. admin.home.lan. 2026091401 7200 3600 1209600 3600
+@       IN NS    ns1
+@       IN MX    10 mail
+ns1     IN A     192.168.1.1
+router  IN A     192.168.1.1
+router  IN AAAA  fd00:cafe::1
+nas     IN A     192.168.1.20
+mail    IN A     192.168.1.25
+media   IN CNAME nas

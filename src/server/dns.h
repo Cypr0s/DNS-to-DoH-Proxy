@@ -37,8 +37,17 @@ typedef struct {
 typedef struct {
     DNSHeader header;
     DNSQuestion question;
+    int8_t OPT_record_flag;
 } DNSQuery, *DNSQueryPtr;
-
-#endif // SERVER_DNS_H
+typedef struct {
+    int8_t opt_counter;
+    int8_t owner_is_root;
+} DNSOPTinfo, *DNSOPTinfoPtr;
 
 #define GET_OPCODE(value) (((value) >> 11) & 0x000F)
+#define OPT_TYPE_RECORD 41
+#define QCLASS_IN 1
+#define QTYPE_AXFR 252
+#define QTYPE_IXFR 251
+
+#endif // SERVER_DNS_H

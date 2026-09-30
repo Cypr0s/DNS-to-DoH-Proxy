@@ -29,7 +29,7 @@ void zoneListPop(ZoneListPtr list) {
 
 void zoneListDestroy(ZoneListPtr list) {
     while(list->head != NULL) {
-        ZoneListPop(list);
+        zoneListPop(list);
     }
 }
 
@@ -39,7 +39,7 @@ void zoneListIterInit(ZoneListIteratorPtr it, ZoneListPtr list) {
 }
 
 
-ZoneNodePtr zoneListIterNext(ZoneListIteratorPtr it) {
+ZoneEntryPtr zoneListIterNext(ZoneListIteratorPtr it) {
     if(it->curr == NULL) {
         return NULL;
     }

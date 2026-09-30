@@ -15,19 +15,22 @@ static ExitStatus createEntry(StringListPtr list, ZoneFileListCtxPtr ctx, ZoneEn
             
             char* second_tok = stringListIterNext(&it);
             if(second_tok == NULL) {
-
+                return STATUS_EX_CONFIG;
             }
+
         } else if(!strcmp(first_tok, "$TTL")) {
             if(ctx->ttl != -1) {
                 return STATUS_EX_CONFIG;
             }
             char* second_tok = stringListIterNext(&it);
             if(second_tok == NULL) {
-               long ttl = convertStrToNum(second_tok, ZONEFILE_MIN, ZONEFILE_MINIMUM_MAX);
-               if(ttl == -1) {
-                    return STATUS_EX_CONFIG;
-               }
+                return STATUS_EX_CONFIG;
             }
+            long ttl = convertStrToNum(second_tok, ZONEFILE_MIN, ZONEFILE_MINIMUM_MAX);
+            if(ttl == -1) {
+                return STATUS_EX_CONFIG;
+            }
+            
         }
     }
 }

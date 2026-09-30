@@ -4,16 +4,6 @@
 #include <stdint.h>
 #include "error.h"
 
-typedef struct zone_node {
-    ZoneEntryPtr zone_entry;
-    struct zone_node* next;
-} ZoneNode, *ZoneNodePtr;
-
-
-typedef struct {
-    ZoneNodePtr head;
-} ZoneList, *ZoneListPtr;
-
 typedef enum {
     ENTRY_SOA,
     ENTRY_NS,
@@ -60,7 +50,6 @@ typedef struct {
     char* exchange;
 } MXEntry, *MXEntryPtr;
 
-
 typedef struct {
     int8_t entry_type;
     union {
@@ -72,6 +61,16 @@ typedef struct {
         SOAEntryPtr soa_entry;
     } entry;
 } ZoneEntry, *ZoneEntryPtr;
+
+typedef struct zone_node {
+    ZoneEntryPtr zone_entry;
+    struct zone_node* next;
+} ZoneNode, *ZoneNodePtr;
+
+
+typedef struct {
+    ZoneNodePtr head;
+} ZoneList, *ZoneListPtr;
 
 typedef struct {
     ZoneNodePtr curr;

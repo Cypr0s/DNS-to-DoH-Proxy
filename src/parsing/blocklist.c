@@ -14,15 +14,12 @@ static const char* ignored_blocks[] = {
     "ip6-allhosts"
 };
 
-inline ExitStatus checkTokenOverFlow(BlockListCtxPtr ctx);
 inline int8_t allowedCharacterCheck(const char c);
 static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root);
 static ExitStatus processToken(char* token, BlockListTreePtr root, BlockListCtxPtr ctx);
 static ExitStatus AddLabelToList(char* label, BlockListCtxPtr ctx, StringListPtr list);
 static ExitStatus LabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr list);
 static ExitStatus parseFile(FILE* fp, BlockListTreePtr root, BlockListCtxPtr ctx);
-
-
 
 
 static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
