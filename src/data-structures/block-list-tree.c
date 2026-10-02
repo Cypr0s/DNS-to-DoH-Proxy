@@ -16,7 +16,7 @@ BlockListTreePtr blockListTreeFindNode(BlockListTreePtr node, char* val) {
 }
 
 BlockListTreePtr blockListTreeCreateNode(char* val, uint8_t is_blocked) {
-    BlockListTreePtr node = malloc(sizeof(BlockListTree));
+    BlockListTreePtr node = (BlockListTreePtr) malloc(sizeof(BlockListTree));
 
     if(node == NULL) {
         return NULL;
@@ -28,6 +28,7 @@ BlockListTreePtr blockListTreeCreateNode(char* val, uint8_t is_blocked) {
     node->is_blocked = is_blocked;
     return node;
 }
+
 
 ExitStatus blockListTreeAddChild(BlockListTreePtr parent, BlockListTreePtr child) {
     if(parent == NULL || child == NULL) {

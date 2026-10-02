@@ -11,4 +11,6 @@ uint16_t bytesToUShort(char* input);
 
 uint32_t bytesToUint(char* input);
 
+uint8_t isValidDomainName(char* name);
+
 #endif // UTIL_STRING_H

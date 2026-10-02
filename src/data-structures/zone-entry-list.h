@@ -10,7 +10,9 @@ typedef enum {
     ENTRY_A,
     ENTRY_AAAA,
     ENTRY_CNAME,
-    ENTRY_MX
+    ENTRY_MX,
+    ENTRY_VALID,
+    ENTRY_INVALID
 } ZoneEntryEnum;
 
 
@@ -26,7 +28,7 @@ typedef struct {
 
 
 typedef struct {
-    char* nsdmame;
+    char* nsdname;
 } NSEntry, *NSEntryPtr;
 
 
@@ -52,13 +54,14 @@ typedef struct {
 
 typedef struct {
     int8_t entry_type;
+    uint32_t ttl;
     union {
-        MXEntryPtr mx_entry;
-        CNAMEEntryPtr cname_entry;
-        AAAAEntryPtr aaaa_entry;
-        AEntryPtr a_entry;
-        NSEntryPtr ns_entry;
-        SOAEntryPtr soa_entry;
+        MXEntry mx_entry;
+        CNAMEEntry cname_entry;
+        AAAAEntry aaaa_entry;
+        AEntry a_entry;
+        NSEntry ns_entry;
+        SOAEntry soa_entry;
     } entry;
 } ZoneEntry, *ZoneEntryPtr;
 

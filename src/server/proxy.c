@@ -16,7 +16,7 @@ static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections) {
         }
         Connection c = {.type = TCP_CLIENT, .timeout = 0, .address = addr, .address_size = addr_len};
         struct pollfd poll_fd = {.fd = new_fd, .events = POLLIN, .revents = 0}; 
-        connectionVectorInsert(connections, poll_fd, c);
+        ExitStatus e = connectionVectorInsert(connections, poll_fd, c);
     }
     return STATUS_SUCCESS;
 }
@@ -51,6 +51,7 @@ static ExitStatus handleDNSQuery(ProxyServer server, char* bytes, size_t message
 ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {
     server->block_list_root = blockListTreeCreateNode(NULL, 0);
     if(server->block_list_root == NULL) {
+        PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
 
@@ -70,6 +71,7 @@ ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {
 
     return STATUS_SUCCESS;
 }
+
 
 ExitStatus proxyServerStart(ProxyServerPtr server) {
     while(1) {

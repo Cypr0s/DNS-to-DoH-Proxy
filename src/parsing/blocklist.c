@@ -38,11 +38,13 @@ static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
             child = blockListTreeCreateNode(val, 0);
 
             if(child == NULL) {
+                PRINT_ERROR("Memory allocation failure");
                 return STATUS_MALLOC_FAILURE;
             }
 
             if(blockListTreeAddChild(tmp, child) != STATUS_SUCCESS) {
                 free(child);
+                PRINT_ERROR("Memory allocation failure");
                 return STATUS_MALLOC_FAILURE;
             }
         } else {
@@ -80,6 +82,7 @@ static ExitStatus processToken(char* token, BlockListTreePtr root, BlockListCtxP
 static ExitStatus AddLabelToList(char* label, BlockListCtxPtr ctx, StringListPtr list) {
     char* list_entry = malloc(sizeof(char) * (ctx->dns_context.label_length + 1));
     if(list_entry == NULL) {
+        PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
 
@@ -87,6 +90,7 @@ static ExitStatus AddLabelToList(char* label, BlockListCtxPtr ctx, StringListPtr
 
     if(stringListInsert(list, list_entry)) {
         free(list_entry);
+        PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
     return STATUS_SUCCESS;
@@ -98,13 +102,14 @@ static ExitStatus LabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr 
     while(*token != '\0') {
         ctx->dns_context.token_length++;
         ExitStatus e = checkTokenOverFlow(ctx);
-        CHECK_ERR(e);
+        CHECK_ERR_AND_FREE(e, PRINT_BLOCKLIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Token overflow"););
 
         if(*token == '.') {
             if(ctx->dns_context.label_length == 0) {
                 if(*(token + 1) == '\0') {
                     break;
                 } else {
+                    PRINT_BLOCKLIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Empty label");
                     return STATUS_EX_CONFIG;
                 }
             }
@@ -129,6 +134,7 @@ static ExitStatus LabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr 
         }
 
         if(!allowedCharacterCheck(*token)) {
+            PRINT_BLOCKLIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Label with invalid character");
             return STATUS_EX_CONFIG;
         }
 
@@ -153,6 +159,7 @@ static ExitStatus parseFile(FILE* fp, BlockListTreePtr root, BlockListCtxPtr ctx
     char* line_str = NULL;
     size_t line_str_capacity = 0;
     while(getdelim(&line_str, &line_str_capacity, '\n', fp) != -1) {
+        ctx->dns_context.line++;
         ctx->flags |= BLOCKLIST_IS_FIRST_TOKEN;
         removeComment(line_str, '#');
         char* token = NULL;
@@ -169,7 +176,6 @@ static ExitStatus parseFile(FILE* fp, BlockListTreePtr root, BlockListCtxPtr ctx
             ctx->dns_context.token_length = 0;
     
         } while(token != NULL);
-        ctx->dns_context.line++;
     }
     free(line_str);
     return STATUS_SUCCESS;
@@ -183,16 +189,20 @@ ExitStatus parseBlockList(StringListPtr block_list, BlockListTreePtr root) {
     FILE* fp;
     while(filename != NULL) {
         BlockListCtx ctx = {
-            .dns_context = {.filename = filename, .line = 1, .label_count = 0, .label_length = 0, .token_length = 0},
+            .dns_context = {.filename = filename, .line = 0, .label_count = 0, .label_length = 0, .token_length = 0},
             .flags = BLOCKLIST_IS_FIRST_TOKEN | BLOCKLIST_IS_ONLY_NUMBERS,
         };
         if(openFile(&fp, filename) != STATUS_SUCCESS) {
-            // TODO
+            PRINT_BLOCKLIST_PARSE_ERROR(filename, 0, "read err");
             return STATUS_EX_CONFIG;
         }
         ExitStatus e = parseFile(fp, root, &ctx);
         fclose(fp);
         CHECK_ERR(e);
+        if(ctx.dns_context.line == 0) {
+            PRINT_BLOCKLIST_PARSE_ERROR(filename, 0, "read err");
+            return STATUS_EX_CONFIG;
+        }
         filename = stringListIterNext(&it);
     }
     return STATUS_SUCCESS;

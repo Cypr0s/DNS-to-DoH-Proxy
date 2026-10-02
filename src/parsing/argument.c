@@ -133,7 +133,8 @@ static ExitStatus setValue(ArgFlagsEnum flag, char* arg, ParsedArgsPtr parsed_ar
         }
 
         default:
-            return STATUS_EX_USAGE;
+            PRINT_ERROR("Internal Error");
+            return STATUS_FAILURE;
     }
     return STATUS_SUCCESS;
 }
