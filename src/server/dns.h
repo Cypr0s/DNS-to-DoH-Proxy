@@ -44,6 +44,18 @@ typedef struct {
     int8_t owner_is_root;
 } DNSOPTinfo, *DNSOPTinfoPtr;
 
+typedef enum {
+    DNS_STATE_DROPPED,
+    DNS_STATE_INVALID_NOTIMP,
+    DNS_STATE_INVALID_FORMERR,
+    DNS_STATE_INVALID_REFUSED,
+    DNS_STATE_LOCAL,
+    DNS_STATE_BLOCKED,
+    DNS_STATE_FORWARDED,
+    DNS_STATE_ERROR,
+    DNS_SATE_VALID, // will be transfromed into blocked, forwarded or local
+} DNSQueryReturnState;
+
 #define GET_OPCODE(value) (((value) >> 11) & 0x000F)
 #define OPT_TYPE_RECORD 41
 #define QCLASS_IN 1

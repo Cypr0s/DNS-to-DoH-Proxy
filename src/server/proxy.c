@@ -21,8 +21,24 @@ static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections) {
     return STATUS_SUCCESS;
 }
 
-static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
 
+static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
+    uint8_t bytes[DNS_QUERY_UDP_SIZE];
+    struct sockaddr_storage address;
+    socklen_t address_size = sizeof(struct sockaddr_storage);
+    while(1) {
+        ssize_t msg_size = recvfrom(fd, bytes, DNS_QUERY_UDP_SIZE, 0, (struct sockaddr *)&address, &address_size);
+        if(msg_size < 0) {
+            if(errno == EAGAIN) {
+                break;
+            }
+            // actual error
+            return STATUS_FAILURE;
+        }
+        char* response;
+        ExitStatus e = handleDNSQuery(bytes, msg_size, server, &response);
+        // response
+    }
 }
 
 
@@ -46,8 +62,8 @@ static ExitStatus handleEvents(ProxyServerPtr server, int event_count) {
     }
 }
 
-static ExitStatus handleDNSQuery(ProxyServer server, char* bytes, size_t message_size) {
-    return;
+static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPtr server, char** response) {
+    return STATUS_SUCCESS;
 }
 
 ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {

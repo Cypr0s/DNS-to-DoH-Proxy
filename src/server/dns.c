@@ -1,24 +1,24 @@
 #include "server/dns.h"
 
-void parseDNSQuery(char* bytes, size_t size, DNSQueryPtr query_out) {
+DNSQueryReturnState parseDNSQuery(char* bytes, size_t size, DNSQueryPtr query_out) {
     // check 1: shorter than 12 octets → dropped;
     if(size < DNS_QUERY_MIN_LENGHT) {
-        return;
+        return DNS_STATE_DROPPED;
     }
 
     parseDNSHeader(bytes, &(query_out->header));
     // check 2: QR = 1 → dropped;
     if(query_out->header.flags & QR) {
-        return;
+        return DNS_STATE_BLOCKED;
     }
     // check 3: OPCODE ≠ QUERY → invalid, NOTIMP;
     uint16_t opcode = GET_OPCODE(query_out->header.flags);
     if(opcode != 0) { // 0 == QUERY, 1 == IQuery ,...
-        return;
+        return DNS_STATE_INVALID_NOTIMP;
     }
     // check 4: QDCOUNT ≠ 1 → invalid, FORMERR (RFC 9619; QDCOUNT = 0 by this specification);
     if(query_out->header.qdcount != 1) {
-        return;
+        return DNS_STATE_INVALID_FORMERR;
     }
 
     // check 5: parse question

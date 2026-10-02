@@ -14,6 +14,7 @@
 #define POLL_TIMEOUT 150 // 
 #define DNS_QUERY_MIN_LENGHT 12 // octets
 #define TCP_CONNECTION_TIMEOUT 10 // seconds
+#define DNS_QUERY_UDP_SIZE 512
 // util
 #define HELP_MESAGE "aaaaaa"
 #define BINARY_NAME "isa-dnsproxy"
