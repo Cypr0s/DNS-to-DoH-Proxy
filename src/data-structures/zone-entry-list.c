@@ -9,7 +9,7 @@ ExitStatus zoneListInsert(ZoneListPtr list, ZoneEntryPtr zone_entry) {
     if(node == NULL) {
         return STATUS_MALLOC_FAILURE;
     }
-    node->zone_entry = zone_entry;
+    node->zone_entry = *zone_entry;
     node->next = list->head;
     list->head = node;
     return STATUS_SUCCESS;
@@ -45,5 +45,5 @@ ZoneEntryPtr zoneListIterNext(ZoneListIteratorPtr it) {
     }
     ZoneNodePtr tmp = it->curr;
     it->curr = it->curr->next;
-    return tmp->zone_entry;
+    return &tmp->zone_entry;
 }

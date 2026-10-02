@@ -102,14 +102,14 @@ static ExitStatus LabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr 
     while(*token != '\0') {
         ctx->dns_context.token_length++;
         ExitStatus e = checkTokenOverFlow(ctx);
-        CHECK_ERR_AND_FREE(e, PRINT_BLOCKLIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Token overflow"););
+        CHECK_ERR_AND_FREE(e, PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Token overflow"););
 
         if(*token == '.') {
             if(ctx->dns_context.label_length == 0) {
                 if(*(token + 1) == '\0') {
                     break;
                 } else {
-                    PRINT_BLOCKLIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Empty label");
+                    PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Empty label");
                     return STATUS_EX_CONFIG;
                 }
             }
@@ -134,7 +134,7 @@ static ExitStatus LabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr 
         }
 
         if(!allowedCharacterCheck(*token)) {
-            PRINT_BLOCKLIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Label with invalid character");
+            PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Label with invalid character");
             return STATUS_EX_CONFIG;
         }
 
@@ -193,14 +193,14 @@ ExitStatus parseBlockList(StringListPtr block_list, BlockListTreePtr root) {
             .flags = BLOCKLIST_IS_FIRST_TOKEN | BLOCKLIST_IS_ONLY_NUMBERS,
         };
         if(openFile(&fp, filename) != STATUS_SUCCESS) {
-            PRINT_BLOCKLIST_PARSE_ERROR(filename, 0, "read err");
+            PRINT_FILELIST_PARSE_ERROR(filename, 0, "read err");
             return STATUS_EX_CONFIG;
         }
         ExitStatus e = parseFile(fp, root, &ctx);
         fclose(fp);
         CHECK_ERR(e);
         if(ctx.dns_context.line == 0) {
-            PRINT_BLOCKLIST_PARSE_ERROR(filename, 0, "read err");
+            PRINT_FILELIST_PARSE_ERROR(filename, 0, "read err");
             return STATUS_EX_CONFIG;
         }
         filename = stringListIterNext(&it);

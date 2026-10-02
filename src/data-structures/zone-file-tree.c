@@ -22,7 +22,7 @@ ZoneFileListTreePtr zoneFileTreeCreateNode(char* val) {
     }
 
     node->value = val;
-    node->list = NULL;
+    zoneListInit(&(node->list));
     node->child_count = 0;
     node->children = NULL;
     node->parent = NULL;
@@ -36,7 +36,7 @@ ExitStatus zoneFileTreeAddChild(ZoneFileListTreePtr parent, ZoneFileListTreePtr 
         return STATUS_FAILURE;
     }
 
-    ZoneFileListTreePtr* new_children =realloc(parent->children, sizeof(ZoneFileListTreePtr) * (parent->child_count + 1));
+    ZoneFileListTreePtr* new_children = realloc(parent->children, sizeof(ZoneFileListTreePtr) * (parent->child_count + 1));
 
     if(new_children == NULL) {
         return STATUS_MALLOC_FAILURE;
@@ -64,7 +64,7 @@ void zoneFileTreeDelete(ZoneFileListTreePtr node) {
     free(node->children);
     free(node->value);
 
-    zoneListDestroy(node->list);
+    zoneListDestroy(&(node->list));
 
     free(node);
 }

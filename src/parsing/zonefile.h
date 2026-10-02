@@ -17,6 +17,8 @@
 typedef enum {
     ZONEFILE_LEADING_WHITESPACE = 0x01,
     ZONEFILE_IS_FIRST_ENTRY = 0x02,
+    ZONEFILE_HAS_SOA = 0x04,
+    ZONEFILE_IS_RECORD = 0x08
 } ZoneFileFlags;
 
 

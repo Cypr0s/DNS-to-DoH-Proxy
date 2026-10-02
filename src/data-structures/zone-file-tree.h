@@ -5,10 +5,18 @@
 typedef struct zonefile_tree_node {
     char* value;
     int8_t is_origin;
-    ZoneListPtr list;
+    ZoneList list;
     size_t child_count;
     struct zonefile_tree_node** children;
     struct zonefile_tree_node* parent;
 } ZoneFileListTree, *ZoneFileListTreePtr;
+
+ZoneFileListTreePtr zoneFileTreeFindNode(ZoneFileListTreePtr node, char* val);
+
+ZoneFileListTreePtr zoneFileTreeCreateNode(char* val);
+
+ExitStatus zoneFileTreeAddChild(ZoneFileListTreePtr parent, ZoneFileListTreePtr child);
+
+void zoneFileTreeDelete(ZoneFileListTreePtr node);
 
 #endif // ZONE_FILE_TREE_H

@@ -66,7 +66,7 @@ typedef struct {
 } ZoneEntry, *ZoneEntryPtr;
 
 typedef struct zone_node {
-    ZoneEntryPtr zone_entry;
+    ZoneEntry zone_entry;
     struct zone_node* next;
 } ZoneNode, *ZoneNodePtr;
 

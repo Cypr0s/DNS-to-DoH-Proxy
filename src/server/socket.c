@@ -4,6 +4,7 @@ ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
     *fd = socket(n, t, 0);
     if(*fd == -1) {
         // todo
+        PRINT_ERROR("Cant open socket");
         return STATUS_FAILURE;
     }
 
@@ -12,6 +13,7 @@ ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
     if(n == NETWORK_BOTH) {
         if(setsockopt(*fd, IPPROTO_IPV6, IPV6_V6ONLY, &val, sizeof(val)) < 0) {
             close(*fd);
+            PRINT_ERROR("Cant open dual socket");
             return STATUS_FAILURE;
         }
     }
@@ -21,6 +23,7 @@ ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
     int rc = ioctl(*fd, FIONBIO, (char *)&val);
     if (rc < 0) {
         close(*fd);
+        PRINT_ERROR("Cant make socket non-blocking");
         return STATUS_FAILURE;
     }
     return STATUS_SUCCESS;
@@ -36,8 +39,8 @@ ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, Tran
         if(address == NULL) {
             ipv4->sin_addr.s_addr = htonl(INADDR_ANY);
         } else if(inet_pton(n, address, &ipv4->sin_addr) != 1) {
-            // TODO
-            return STATUS_FAILURE;
+            PRINT_ARGUMENT_PARSE_ERROR("`%s` address is invalid", address);
+            return STATUS_EX_USAGE;
         }
 
         ipv4->sin_family = n;
@@ -48,8 +51,8 @@ ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, Tran
         if(address == NULL) {
             ipv6->sin6_addr = in6addr_any;
         } else if(inet_pton(n, address, &ipv6->sin6_addr) != 1) {
-            // TODO
-            return STATUS_FAILURE;
+            PRINT_ARGUMENT_PARSE_ERROR("`%s` address is invalid", address);
+            return STATUS_EX_USAGE;
         }
 
         ipv6->sin6_family = AF_INET6;
@@ -59,15 +62,16 @@ ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, Tran
     socklen_t addr_len = n == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
 
     if (bind(*fd, (struct sockaddr *)&addr, addr_len) < 0) {
+        PRINT_ARGUMENT_PARSE_ERROR("Cant bind to address`%s`", address);
         return STATUS_EX_UNAVAIABLE;
     }
 
     if(t == TRANSPORT_TCP) {
         if(listen(*fd, CONNECTION_REQUESTS_MAX) == -1) {
+            PRINT_ERROR("Cant listen on socket");
             return STATUS_FAILURE;
         }
     }
-    
 
     return STATUS_SUCCESS;
 }
@@ -77,7 +81,8 @@ ExitStatus prepareSockets(ParsedArgsPtr parsed_arguments, ConnectionVectorPtr co
     NetworkType n;
     if(parsed_arguments->flags & ARG_ADDRESS) {
         if(parsed_arguments->address == NULL) {
-            return STATUS_FAILURE;
+            PRINT_ERROR("Missing local address");
+            return STATUS_EX_USAGE;
         }
         char* c = strchr(parsed_arguments->address, ':');
         if(c == NULL) {
