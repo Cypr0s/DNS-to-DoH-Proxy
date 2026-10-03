@@ -8,6 +8,7 @@ static ZoneTypeString zone_types[] = {
     {"SOA", ENTRY_SOA},
     {"CNAME", ENTRY_CNAME},
     {"MX", ENTRY_MX},
+    {"ANY", ENTRY_ANY}
 };
 
 
@@ -226,7 +227,9 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
         case ENTRY_INVALID:
             return STATUS_EX_CONFIG;
         case ENTRY_VALID:
-            return STATUS_SUCCESS;
+        case ENTRY_ANY:
+            // TODO INSERT EVEN IF ITS VALID
+            break;
         case ENTRY_A: {
             if(ctx->origin == NULL) {
                 PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Missing origin");
@@ -522,7 +525,7 @@ static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreeP
         tmp = child;
     }
     stringListDestroy(&list);
-    tmp->is_origin = 1;
+    tmp->is_apex = 1;
     ZoneListPtr zone_entry_list = &(tmp->list);
     // cname check
     if(entry->entry_type == ENTRY_CNAME && zone_entry_list->head != NULL) {

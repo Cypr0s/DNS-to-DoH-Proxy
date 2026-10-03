@@ -35,8 +35,8 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
             // actual error
             return STATUS_FAILURE;
         }
-        char* response;
-        ExitStatus e = handleDNSQuery(bytes, msg_size, server, &response);
+        DNSState dns_state = {0};
+        ExitStatus e = handleDNSQuery(bytes, msg_size, server, &dns_state);
         // response
     }
 }
@@ -62,9 +62,20 @@ static ExitStatus handleEvents(ProxyServerPtr server, int event_count) {
     }
 }
 
-static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPtr server, char** response) {
+static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPtr server, DNSStatePtr dns_state) {
+    ExitStatus e = parseDNSQuery(bytes, message_size, dns_state);
+    CHECK_ERR(e);
+    if(dns_state->state = DNS_STATE_DROPPED) {
+        return STATUS_SUCCESS;
+    }
+    createReply(bytes, message_size, dns_state); // blank reply
+    if(dns_state->state == DNS_STATE_VALID) {
+
+    }
+    
     return STATUS_SUCCESS;
 }
+
 
 ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {
     server->block_list_root = blockListTreeCreateNode(NULL, 0);

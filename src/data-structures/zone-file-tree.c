@@ -68,3 +68,28 @@ void zoneFileTreeDelete(ZoneFileListTreePtr node) {
 
     free(node);
 }
+
+static uint8_t isInZone(ZoneFileListTreePtr root, StringListPtr labels, ZoneFileListTreePtr* zone, ZoneFileListTreePtr* name) {
+    *zone = NULL;
+    ZoneFileListTreePtr node = root;
+    StringListIterator it;
+    stringListIterInit(&it, labels);
+
+    char* label;
+    while((label = stringListIterNext(&it)) != NULL) {
+        node = zoneFileTreeFindNode(node, label);
+        if(node == NULL) {
+            break;
+        }
+
+        if(node->is_apex) {
+            *zone = node;
+        }
+    }
+    *name = node;
+    // name outside
+    if(*zone == NULL) {
+        return 0;
+    }
+    return 1;
+}

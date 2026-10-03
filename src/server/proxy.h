@@ -5,6 +5,7 @@
 #include "parsing/zonefile.h"
 #include "parsing/blocklist.h"
 #include "parsing/argument.h"
+#include "server/dns.h"
 
 typedef struct {
     ConnectionVectorPtr connections;

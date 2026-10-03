@@ -1,48 +1,70 @@
 #include "server/dns.h"
 
-DNSQueryReturnState parseDNSQuery(char* bytes, size_t size, DNSQueryPtr query_out) {
+static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* current_position, DNSStatePtr dns_state);
+static void parseDNSHeader(char* bytes, DNSHeaderPtr query_header);
+static ExitStatus parseDNSQuestion(char* bytes,size_t size, DNSQuestionPtr query_question, size_t* current_position);
+static ExitStatus parseLabels(char* bytes, size_t size, StringListPtr labels, size_t* current_position);
+static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, DNSFlagsPtr flags);
+
+ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state) {
     // check 1: shorter than 12 octets → dropped;
     if(size < DNS_QUERY_MIN_LENGHT) {
-        return DNS_STATE_DROPPED;
+        dns_state->state = DNS_STATE_DROPPED;
+        return STATUS_SUCCESS;
     }
 
-    parseDNSHeader(bytes, &(query_out->header));
+    parseDNSHeader(bytes, &(dns_state->query.header));
     // check 2: QR = 1 → dropped;
-    if(query_out->header.flags & QR) {
-        return DNS_STATE_BLOCKED;
+    if(dns_state->query.header.flags & QR) {
+        dns_state->state = DNS_STATE_BLOCKED;
+        return STATUS_SUCCESS;
     }
     // check 3: OPCODE ≠ QUERY → invalid, NOTIMP;
-    uint16_t opcode = GET_OPCODE(query_out->header.flags);
+    uint16_t opcode = GET_OPCODE(dns_state->query.header.flags);
     if(opcode != 0) { // 0 == QUERY, 1 == IQuery ,...
-        return DNS_STATE_INVALID_NOTIMP;
+        dns_state->state = DNS_STATE_INVALID_NOTIMP;
+        return STATUS_SUCCESS;
     }
     // check 4: QDCOUNT ≠ 1 → invalid, FORMERR (RFC 9619; QDCOUNT = 0 by this specification);
-    if(query_out->header.qdcount != 1) {
-        return DNS_STATE_INVALID_FORMERR;
+    if(dns_state->query.header.qdcount != 1) {
+        dns_state->state = DNS_STATE_INVALID_FORMERR;
+        return STATUS_SUCCESS;
     }
 
     // check 5: parse question
     size_t current_position = DNS_QUERY_MIN_LENGHT;
-    ExitStatus e = parseDNSQuestion(bytes, size, &(query_out->question), &current_position);
-    CHECK_ERR(e);
-    
+    ExitStatus e = parseDNSQuestion(bytes, size, &(dns_state->query.question), &current_position);
+    if(e == STATUS_FAILURE) {
+        dns_state->state = DNS_STATE_INVALID_FORMERR;
+        return STATUS_SUCCESS;
+    } else if(e == STATUS_MALLOC_FAILURE) {
+        return e;
+    }
+    dns_state->flags |= DNS_FLAG_PARSED_QUESTION;
     // check 6: skip RRs, check OPT RECORDS
-    e = skipDNSResourceRecords(bytes, size, &current_position, query_out->header);
-    CHECK_ERR(e);
-
+    e = skipDNSResourceRecords(bytes, size, &current_position, dns_state);
+    if(e != STATUS_SUCCESS) {
+        dns_state->state = DNS_STATE_INVALID_FORMERR;
+        return STATUS_SUCCESS;
+    }
+    dns_state->flags |= DNS_FLAG_PARSED_RRS;
     // check 7: QCLASS ≠ IN (including ANY) → invalid, NOTIMP;
-    if(query_out->question.qclass != QCLASS_IN) {
-        return;
+    if(dns_state->query.question.qclass != QCLASS_IN) {
+        dns_state->state = DNS_STATE_INVALID_NOTIMP;
+        return STATUS_SUCCESS;
     }
 
     // check 8: QTYPE = AXFR or IXFR → invalid, REFUSED;
-    if(query_out->question.qtype == QTYPE_AXFR || query_out->question.qtype == QTYPE_IXFR) {
-        return;
+    if(dns_state->query.question.qtype == QTYPE_AXFR || dns_state->query.question.qtype == QTYPE_IXFR) {
+        dns_state->state = DNS_STATE_INVALID_REFUSED;
+        return STATUS_SUCCESS;
     }
 
     // check: 9 will be done after this (not a parsing check)
-    return;
+    dns_state->state = DNS_STATE_VALID;
+    return STATUS_SUCCESS;
 }
+
 
 static void parseDNSHeader(char* bytes, DNSHeaderPtr query_header) {
     uint16_t* field = (uint16_t*) query_header;
@@ -124,7 +146,7 @@ static ExitStatus parseLabels(char* bytes, size_t size, StringListPtr labels, si
 }
 
 
-static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, DNSOPTinfoPtr info) {
+static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, DNSFlagsPtr dns_flags) {
     size_t start_position = *current_position;
     ExitStatus e = parseLabels(bytes, size, NULL, current_position);
     CHECK_ERR(e);
@@ -135,9 +157,9 @@ static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, 
 
     uint16_t type = bytesToUShort(bytes + *current_position);
     if (type == OPT_TYPE_RECORD) { // OPT
-        info->opt_counter++;
+        *dns_flags |= DNS_FLAG_OPT;
         if(start_position + 1 == *current_position) {
-            info->owner_is_root = 1;
+            *dns_flags |= DNS_FLAG_IS_ROOT;
         }
     }
     *current_position += 2;
@@ -155,31 +177,55 @@ static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, 
 }
 
 
-static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* current_position, DNSHeader header) {
-    DNSOPTinfo info = {0};
-    for(uint16_t i = 0; i < header.ancount; i++) {
-        ExitStatus e = skipDNSRR(bytes, size, current_position, &info);
+static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* current_position, DNSStatePtr dns_state) {
+    for(uint16_t i = 0; i < dns_state->query.header.ancount; i++) {
+        ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags);
         CHECK_ERR(e);
-        if(info.opt_counter > 0) {
+        if(dns_state->flags & DNS_FLAG_OPT) {
             return STATUS_FAILURE;
         }
     }
 
-    for(uint16_t i = 0; i < header.nscount; i++) {
-        ExitStatus e = skipDNSRR(bytes, size, current_position, &info);
+    for(uint16_t i = 0; i <  dns_state->query.header.nscount; i++) {
+        ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags);
         CHECK_ERR(e);
-        if(info.opt_counter > 0) {
+        if(dns_state->flags & DNS_FLAG_OPT) {
             return STATUS_FAILURE;
         }
     }
-
-    for(uint16_t i = 0; i < header.arcount; i++) {
-        ExitStatus e = skipDNSRR(bytes, size, current_position, &info);
+    uint8_t opt_cnt = 0;
+    for(uint16_t i = 0; i <  dns_state->query.header.arcount; i++) {
+        dns_state->flags &= ~(DNS_FLAG_OPT | DNS_FLAG_IS_ROOT);
+        ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags);
         CHECK_ERR(e);
-        if(info.opt_counter > 1 || (info.opt_counter == 1 && !info.owner_is_root)) {
-            return STATUS_FAILURE;
+        if (dns_state->flags & DNS_FLAG_OPT) {
+            opt_cnt++;
+
+            if (opt_cnt > 1 || !(dns_state->flags & DNS_FLAG_IS_ROOT)) {
+                return STATUS_FAILURE;
+            }
         }
     }
 
     return STATUS_SUCCESS;
+}
+
+
+static ExitStatus createDnsAnswer(DNSStatePtr dns_state) {
+    dns_state->reply = malloc(DNS_QUERY_UDP_SIZE); // dns only for now
+    if(dns_state->reply == NULL) {
+        return STATUS_MALLOC_FAILURE;
+    }
+
+    size_t offset = 0;
+    // copy ID
+    uShortToBytes(dns_state->query.header.id, dns_state->reply + offset);
+    offset += 2;
+    uint16_t flags = QR | RA;
+
+    flags |= dns_state->query.header.flags & OPCODE;
+    flags |= dns_state->query.header.flags & RD;
+    flags |= dns_state->query.header.flags & CD;
+    uShortToBytes(flags, dns_state->reply + offset);
+    // TODO: copy question if parsed, then basic skelet is finished
 }

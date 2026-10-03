@@ -12,7 +12,8 @@ typedef enum {
     ENTRY_CNAME,
     ENTRY_MX,
     ENTRY_VALID,
-    ENTRY_INVALID
+    ENTRY_INVALID,
+    ENTRY_ANY
 } ZoneEntryEnum;
 
 

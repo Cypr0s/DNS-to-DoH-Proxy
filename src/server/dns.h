@@ -8,6 +8,7 @@
 
 typedef enum {
     QR = 0x8000,
+    OPCODE = 0x7800, // mask
     AA = 0x0400,
     TC = 0x0200,
     RD = 0x0100,
@@ -37,12 +38,7 @@ typedef struct {
 typedef struct {
     DNSHeader header;
     DNSQuestion question;
-    int8_t OPT_record_flag;
 } DNSQuery, *DNSQueryPtr;
-typedef struct {
-    int8_t opt_counter;
-    int8_t owner_is_root;
-} DNSOPTinfo, *DNSOPTinfoPtr;
 
 typedef enum {
     DNS_STATE_DROPPED,
@@ -52,14 +48,29 @@ typedef enum {
     DNS_STATE_LOCAL,
     DNS_STATE_BLOCKED,
     DNS_STATE_FORWARDED,
-    DNS_STATE_ERROR,
-    DNS_SATE_VALID, // will be transfromed into blocked, forwarded or local
-} DNSQueryReturnState;
+    DNS_STATE_VALID, // will be transfromed into blocked, forwarded or local
+} DNSQueryReturnState, *DNSQueryReturnStatePtr;
+
+typedef enum {
+    DNS_FLAG_OPT = 0x01,
+    DNS_FLAG_IS_ROOT = 0x02,
+    DNS_FLAG_PARSED_QUESTION = 0x04,
+    DNS_FLAG_PARSED_RRS = 0x08,
+} DNSFlags, *DNSFlagsPtr;
+typedef struct {
+    DNSQuery query;
+    char* reply;
+    size_t reply_size;
+    DNSQueryReturnState state;
+    DNSFlags flags;
+} DNSState, *DNSStatePtr;
 
 #define GET_OPCODE(value) (((value) >> 11) & 0x000F)
 #define OPT_TYPE_RECORD 41
 #define QCLASS_IN 1
 #define QTYPE_AXFR 252
 #define QTYPE_IXFR 251
+
+ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state);
 
 #endif // SERVER_DNS_H

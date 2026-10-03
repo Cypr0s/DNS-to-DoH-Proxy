@@ -5,6 +5,7 @@
 #include <string.h>
 #include "error.h"
 #include <stdint.h>
+#include "data-structures/string-linked-list.h"
 
 typedef struct blocklist_tree_node {
     char* value;
@@ -20,5 +21,7 @@ BlockListTreePtr blockListTreeCreateNode(char* val, uint8_t is_blocked);
 ExitStatus blockListTreeAddChild(BlockListTreePtr parent, BlockListTreePtr child);
 
 void blockListTreeDelete(BlockListTreePtr node);
+
+static uint8_t domainIsBlocked(BlockListTreePtr root, StringListPtr labels);
 
 #endif // BLOCK_LIST_TREE_H

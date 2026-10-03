@@ -1,10 +1,12 @@
 #ifndef ZONE_FILE_TREE_H
 #define ZONE_FILE_TREE_H
 
-#include "zone-entry-list.h"
+#include "data-structures/zone-entry-list.h"
+#include "data-structures/string-linked-list.h"
+#include "server/dns.h"
 typedef struct zonefile_tree_node {
     char* value;
-    int8_t is_origin;
+    int8_t is_apex;
     ZoneList list;
     size_t child_count;
     struct zonefile_tree_node** children;

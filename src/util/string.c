@@ -19,7 +19,12 @@ uint16_t bytesToUShort(char* input) {
 }
 
 uint32_t bytesToUint(char* input) {
-    return (uint32_t)((input[0] << 24) | (input[1] << 16) | (input[2] << 8) | input[3]); 
+    return (uint32_t)((input[0] << 24) | (input[1] << 16) | (input[2] << 8) | input[3]);
+}
+
+static void uShortToBytes(uint16_t value, char *output) {
+    output[0] = (char)(value >> 8);
+    output[1] = (char)(value & 0xFF);
 }
 
 
