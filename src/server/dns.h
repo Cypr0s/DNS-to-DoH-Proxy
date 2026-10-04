@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include "util/string.h"
 #include "data-structures/string-linked-list.h"
+#include "data-structures/block-list-tree.h"
+#include "data-structures/zone-file-tree.h"
 
 typedef enum {
     QR = 0x8000,
@@ -18,6 +20,15 @@ typedef enum {
     CD = 0x0010
 } DNSHeaderFlags;
 
+typedef enum {
+    RCODE_NOERROR = 0,
+    RCODE_FORMERR = 1,
+    RCODE_SERVFAIL = 2,
+    RCODE_NXDOMAIN = 3,
+    RCODE_NOTIMP = 4,
+    RCODE_REFUSED = 5,
+} RcodeEnum;
+
 typedef struct __attribute__((packed)) {
     uint16_t id;
     uint16_t flags;
@@ -28,8 +39,8 @@ typedef struct __attribute__((packed)) {
 } DNSHeader, *DNSHeaderPtr;
 
 typedef struct {
-    char* qname;
-    size_t qname_size;
+    char* question;
+    size_t question_size;
     uint16_t qtype;
     uint16_t qclass;
     StringList labels;
@@ -65,12 +76,14 @@ typedef struct {
     DNSFlags flags;
 } DNSState, *DNSStatePtr;
 
-#define GET_OPCODE(value) (((value) >> 11) & 0x000F)
+#define GET_OPCODE(value) (((value) >> 11) & 0x000f)
 #define OPT_TYPE_RECORD 41
 #define QCLASS_IN 1
 #define QTYPE_AXFR 252
 #define QTYPE_IXFR 251
 
 ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state);
+
+ExitStatus createDNSAnswer(DNSStatePtr dns_state);
 
 #endif // SERVER_DNS_H

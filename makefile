@@ -1,7 +1,7 @@
 #taken from my project https://github.com/Cypr0s/CyprSH/blob/main/Makefile and modified
 
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c17 -pedantic -O2 -Isrc -D_POSIX_C_SOURCE=200809L
+CFLAGS = -Wall -Wextra -std=c17 -pedantic -O2 -Isrc -D_POSIX_C_SOURCE=200809L 
 LDFLAGS = 
 
 SRC := $(shell find src -name '*.c')
@@ -14,7 +14,7 @@ DEVSHELL = c
 .PHONY: all test clean NixDevShellName zip debug
 
 # default build
-all: $(TARGET)
+all: clean $(TARGET)
 
 $(TARGET): $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) -o $(TARGET)

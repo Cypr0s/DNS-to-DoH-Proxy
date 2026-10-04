@@ -27,11 +27,10 @@ static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
         return STATUS_SUCCESS;
     }
 
-    StringListIterator it;
-    stringListIterInit(&it, list);
     char* val;
     BlockListTreePtr tmp = root;
-    while((val = stringListIterNext(&it)) != NULL) {
+    while(list->head != NULL) {
+        val = list->head->data;
         BlockListTreePtr child = blockListTreeFindNode(tmp, val);
 
         if(child == NULL) {
@@ -42,6 +41,7 @@ static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
                 return STATUS_MALLOC_FAILURE;
             }
 
+            list->head->data = NULL;
             if(blockListTreeAddChild(tmp, child) != STATUS_SUCCESS) {
                 free(child);
                 PRINT_ERROR("Memory allocation failure");
@@ -49,8 +49,9 @@ static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
             }
         } else {
             free(val);
+            list->head->data = NULL;
         }
-
+        stringListPop(list);
         tmp = child;
     }
     tmp->is_blocked = 1;
@@ -101,7 +102,7 @@ static ExitStatus LabelizeToken(char* token, BlockListCtxPtr ctx, StringListPtr 
     char* label_start = token;
     while(*token != '\0') {
         ctx->dns_context.token_length++;
-        ExitStatus e = checkTokenOverFlow(ctx);
+        ExitStatus e = checkTokenOverFlow(&ctx->dns_context);
         CHECK_ERR_AND_FREE(e, PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Token overflow"););
 
         if(*token == '.') {
@@ -170,6 +171,7 @@ static ExitStatus parseFile(FILE* fp, BlockListTreePtr root, BlockListCtxPtr ctx
                 ExitStatus e = processToken(token, root, ctx);
                 CHECK_ERR_AND_FREE(e, free(line_str););
             }
+            
             ctx->flags |= BLOCKLIST_IS_ONLY_NUMBERS;
             ctx->dns_context.label_count = 0;
             ctx->dns_context.label_length = 0;

@@ -59,9 +59,10 @@ ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, Tran
         ipv6->sin6_port = htons(port);
     }
 
-    socklen_t addr_len = n == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+    socklen_t addr_len = n == NETWORK_IPV4 ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
 
     if (bind(*fd, (struct sockaddr *)&addr, addr_len) < 0) {
+        perror("bind");
         PRINT_ARGUMENT_PARSE_ERROR("Cant bind to address`%s`", address);
         return STATUS_EX_UNAVAIABLE;
     }
@@ -73,6 +74,16 @@ ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, Tran
         }
     }
 
+    if(n == NETWORK_IPV4) {
+        PRINT_LISTENING_SOCKET(address, port);
+    } else {
+        if(address == NULL) {
+            PRINT_LISTENING_SOCKET("0.0.0.0", port);
+            PRINT_LISTENING_SOCKET_V6("::", port);
+        } else {
+            PRINT_LISTENING_SOCKET_V6(address, port);
+        }
+    }
     return STATUS_SUCCESS;
 }
 

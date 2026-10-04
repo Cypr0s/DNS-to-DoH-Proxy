@@ -1,5 +1,10 @@
 #include "server/proxy.h"
 
+static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections);
+static ExitStatus processUDPMessages(int fd, ProxyServerPtr server);
+static ExitStatus handleEvents(ProxyServerPtr server, int event_count);
+static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPtr server, DNSStatePtr dns_state);
+
 // https://www.ibm.com/docs/en/i/7.1.0?topic=designs-using-poll-instead-select
 static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections) {
     int new_fd = -1;
@@ -17,6 +22,7 @@ static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections) {
         Connection c = {.type = TCP_CLIENT, .timeout = 0, .address = addr, .address_size = addr_len};
         struct pollfd poll_fd = {.fd = new_fd, .events = POLLIN, .revents = 0}; 
         ExitStatus e = connectionVectorInsert(connections, poll_fd, c);
+        CHECK_ERR(e);
     }
     return STATUS_SUCCESS;
 }
@@ -36,43 +42,95 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
             return STATUS_FAILURE;
         }
         DNSState dns_state = {0};
-        ExitStatus e = handleDNSQuery(bytes, msg_size, server, &dns_state);
+        ExitStatus e = handleDNSQuery((char*)bytes, msg_size, server, &dns_state);
+        CHECK_ERR(e);
         // response
+        if(dns_state.reply != NULL) {
+            msg_size = sendto(fd, dns_state.reply, dns_state.reply_size, 0, (struct sockaddr*) &address, &address_size);
+            if(msg_size < 0) {
+                return STATUS_FAILURE;
+            }
+            
+        }
     }
+    return STATUS_SUCCESS;
 }
 
 
 static ExitStatus handleEvents(ProxyServerPtr server, int event_count) {
-    for(size_t i = 0; i < server->connections->curr_size; i++) {
+    ExitStatus e = STATUS_SUCCESS;
+    for(size_t i = 0; i < server->connections.curr_size; i++) {
         if(event_count == 0) {
             break;
         }
-        if(server->connections->poll_fds[i].revents & POLLIN) {
-            switch (server->connections->connections[i].type) {
+        if(server->connections.poll_fds[i].revents & POLLIN) {
+            switch (server->connections.connections[i].type) {
             case UDP_LISTEN:
-                processUDPMessages(server->connections->poll_fds[i].fd, server);
+                e = processUDPMessages(server->connections.poll_fds[i].fd, server);
+                CHECK_ERR(e);
                 break;
             case TCP_LISTEN:
-                ExitStatus e = acceptConnections(server->connections->poll_fds[i].fd, server);
+                e = acceptConnections(server->connections.poll_fds[i].fd, &server->connections);
+                CHECK_ERR(e);
             default:
                 break;
             }
             event_count--;
         }
     }
+    return e;
 }
 
 static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPtr server, DNSStatePtr dns_state) {
     ExitStatus e = parseDNSQuery(bytes, message_size, dns_state);
     CHECK_ERR(e);
-    if(dns_state->state = DNS_STATE_DROPPED) {
+    if(dns_state->state == DNS_STATE_DROPPED) {
         return STATUS_SUCCESS;
     }
-    createReply(bytes, message_size, dns_state); // blank reply
-    if(dns_state->state == DNS_STATE_VALID) {
-
+    e = createDNSAnswer(dns_state); // blank reply
+    uint16_t response_header_flags = bytesToUShort(dns_state->reply + 2);
+    switch(dns_state->state){
+        case DNS_STATE_INVALID_FORMERR:
+            response_header_flags |= RCODE_FORMERR;
+            break;
+        case DNS_STATE_INVALID_NOTIMP:
+            response_header_flags |= RCODE_NOTIMP;
+            break;
+        case DNS_STATE_INVALID_REFUSED:
+            response_header_flags |= RCODE_REFUSED;
+            break;
+        case DNS_STATE_VALID: {
+            ZoneFileListTreePtr zone = NULL;
+            ZoneFileListTreePtr name = NULL;
+            // local
+            uint8_t return_flag = isInZone(server->zone_file_root, &dns_state->query.question.labels, &zone, &name);
+            if(return_flag) {
+                // name doesnt exist
+                if(name == NULL) {
+                    response_header_flags |= RCODE_NXDOMAIN;
+                    // add SOA
+                    break;
+                }
+                dns_state->state = DNS_STATE_LOCAL;
+                break;
+            }
+            // blocked
+            return_flag = isBlocked(server->block_list_root, &dns_state->query.question.labels);
+            if(return_flag) {
+                dns_state->state = DNS_STATE_BLOCKED;
+                response_header_flags |= RCODE_NXDOMAIN;
+                break;
+            }
+            // forward here
+            free(dns_state->reply);
+            dns_state->state = DNS_STATE_FORWARDED;
+            dns_state->reply = NULL;
+            return STATUS_SUCCESS;
+        }
+        default: 
+            return STATUS_FAILURE;
     }
-    
+    uShortToBytes(response_header_flags, dns_state->reply + 2);    
     return STATUS_SUCCESS;
 }
 
@@ -87,20 +145,21 @@ ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {
     ExitStatus e = parseBlockList(&(parsed_args->block_lists), server->block_list_root);
     CHECK_ERR_AND_FREE(e, blockListTreeDelete(server->block_list_root););
 
+
     server->zone_file_root = zoneFileTreeCreateNode(NULL);
     if(server->zone_file_root == NULL) {
         PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
 
-    e = parseZoneFile(&(parsed_args->block_lists), server->zone_file_root);
-    CHECK_ERR_AND_FREE(e, proxyServerDtor(server););
+    e = parseZoneList(&(parsed_args->zone_files), server->zone_file_root);
+    CHECK_ERR(e);
 
-    e = connectionVectorInit(server->connections);
-    CHECK_ERR_AND_FREE(e, proxyServerDtor(server););
+    e = connectionVectorInit(&server->connections);
+    CHECK_ERR(e);
 
-    e = prepareSockets(parsed_args, server->connections);
-    CHECK_ERR_AND_FREE(e, proxyServerDtor(server););
+    e = prepareSockets(parsed_args, &server->connections);
+    CHECK_ERR(e);
 
     return STATUS_SUCCESS;
 }
@@ -108,7 +167,7 @@ ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {
 
 ExitStatus proxyServerStart(ProxyServerPtr server) {
     while(1) {
-        int events = poll(server->connections->poll_fds, server->connections->curr_size, POLL_TIMEOUT);
+        int events = poll(server->connections.poll_fds, server->connections.curr_size, POLL_TIMEOUT);
         if(events > 0) {
             ExitStatus e = handleEvents(server, events);
             CHECK_ERR(e);
@@ -124,6 +183,8 @@ ExitStatus proxyServerStart(ProxyServerPtr server) {
 
 void proxyServerDtor(ProxyServerPtr server) {
     zoneFileTreeDelete(server->zone_file_root);
+    server->zone_file_root = NULL;
     blockListTreeDelete(server->block_list_root);
-    connectionVectorClean(server->connections);
+    server->block_list_root = NULL;
+    connectionVectorClean(&server->connections);
 }

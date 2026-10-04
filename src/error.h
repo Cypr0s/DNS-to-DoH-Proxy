@@ -16,6 +16,7 @@
 #define CHECK_ERR_AND_FREE(status, ...) do {    \
     if(status != STATUS_SUCCESS) {              \
         __VA_ARGS__;                            \
+        return status;                          \
     }                                           \
 } while(0);
 
@@ -33,7 +34,8 @@ void printErrorMsg(char* format, ...);
 
 #define PRINT_FILELIST_PARSE_ERROR(file, line, msg) (printErrorMsg("%s:%zu:%s", file, line, msg))
 #define PRINT_ARGUMENT_PARSE_ERROR(format, ...) (printErrorMsg(format, __VA_ARGS__))
-#define PRINT_LISTENING_SOCKET(address, port) (printErrorMsg(""))
+#define PRINT_LISTENING_SOCKET(address, port) (printErrorMsg("listening on on %s:%u", address, port))
+#define PRINT_LISTENING_SOCKET_V6(address, port) (printErrorMsg("listening on on [%s]:%u", address, port))
 #define PRINT_ERROR(...) (printErrorMsg(__VA_ARGS__))
 
 #endif // ERROR_H

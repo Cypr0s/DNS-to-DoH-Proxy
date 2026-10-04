@@ -63,14 +63,14 @@ void blockListTreeDelete(BlockListTreePtr node) {
 }
 
 
-static uint8_t domainIsBlocked(BlockListTreePtr root, StringListPtr labels) {
+uint8_t isBlocked(BlockListTreePtr root, StringListPtr labels) {
     BlockListTreePtr node = root;
     StringListIterator it;
     stringListIterInit(&it, labels);
 
     char* label;
     while((label = stringListIterNext(&it)) != NULL) {
-        node = zoneFileTreeFindNode(node, label);
+        node = blockListTreeFindNode(node, label);
         if(node == NULL) {
             return 0;
         }

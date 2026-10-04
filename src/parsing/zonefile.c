@@ -22,7 +22,7 @@ static ExitStatus createEntry(StringListPtr list, ZoneFileListCtxPtr ctx, ZoneEn
 static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreePtr root, DNSFileContextPtr ctx);
 static ExitStatus tokenizeLine(char* line_str, StringListPtr list);
 static ExitStatus parseFile(FILE* fp, ZoneFileListTreePtr root, ZoneFileListCtxPtr ctx);
-static void destroyZoneFIleCtx(ZoneFileListCtxPtr ctx);
+static void destroyZoneFileCtx(ZoneFileListCtxPtr ctx);
 
 
 static ExitStatus checkAndCreateDomainStr(char* token, char* origin, char** out, DNSFileContextPtr ctx) {
@@ -30,7 +30,7 @@ static ExitStatus checkAndCreateDomainStr(char* token, char* origin, char** out,
         PRINT_FILELIST_PARSE_ERROR(ctx->filename, ctx->line, "Invalid character in domain name");
         return STATUS_EX_CONFIG;
     }
-    ExitStatus e;
+
     size_t token_size =strlen(token);
     if(token[token_size - 1] == '.') {
         *out = strdup(token);
@@ -152,6 +152,7 @@ static ExitStatus parseTTL(StringListIteratorPtr it, ZoneFileListCtxPtr ctx) {
     return STATUS_SUCCESS;
 }
 
+
 static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, ZoneEntryPtr zone_entry) {
     char* token;
     token = stringListIterNext(it);
@@ -161,7 +162,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
     }
 
     // owner
-    char* owner;
+    char* owner = NULL;
     if(ctx->flags & ZONEFILE_LEADING_WHITESPACE) {
         if(ctx->current_owner == NULL) {
             PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Missing previous owner");
@@ -462,13 +463,14 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
 
 static ExitStatus createEntry(StringListPtr list, ZoneFileListCtxPtr ctx, ZoneEntryPtr zone_entry) {
     // process items in list one by one
+    stringListReverse(list);
+
     StringListIterator it; 
     stringListIterInit(&it, list);
     char* token = stringListIterNext(&it);
     if (token == NULL) {
         return STATUS_SUCCESS;
     }
-
     if(!strcasecmp(token, "$ORIGIN")) {
         return parseOrigin(&it, ctx);
     } else if(!strcasecmp(token, "$TTL")) {
@@ -587,7 +589,6 @@ static ExitStatus parseFile(FILE* fp, ZoneFileListTreePtr root, ZoneFileListCtxP
         if(isspace((unsigned char)*line_str)) {
             ctx->flags |= ZONEFILE_LEADING_WHITESPACE;
         }
-
         removeComment(line_str, ';');
         StringList list;
         stringListInit(&list);
@@ -641,7 +642,7 @@ ExitStatus parseZoneList(StringListPtr zone_list, ZoneFileListTreePtr root) {
     return STATUS_SUCCESS;
 }
 
-static void destroyZoneFIleCtx(ZoneFileListCtxPtr ctx) {
+static void destroyZoneFileCtx(ZoneFileListCtxPtr ctx) {
     if(ctx == NULL) {
         return;
     }

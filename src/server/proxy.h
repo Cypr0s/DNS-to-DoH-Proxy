@@ -8,7 +8,7 @@
 #include "server/dns.h"
 
 typedef struct {
-    ConnectionVectorPtr connections;
+    ConnectionVector connections;
     BlockListTreePtr block_list_root;
     ZoneFileListTreePtr zone_file_root;
 } ProxyServer, *ProxyServerPtr;

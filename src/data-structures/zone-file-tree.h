@@ -21,4 +21,6 @@ ExitStatus zoneFileTreeAddChild(ZoneFileListTreePtr parent, ZoneFileListTreePtr 
 
 void zoneFileTreeDelete(ZoneFileListTreePtr node);
 
+uint8_t isInZone(ZoneFileListTreePtr root, StringListPtr labels, ZoneFileListTreePtr* zone, ZoneFileListTreePtr* name);
+
 #endif // ZONE_FILE_TREE_H

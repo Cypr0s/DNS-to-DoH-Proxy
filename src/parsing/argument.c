@@ -26,6 +26,7 @@ void parsedArgsCtor(ParsedArgsPtr parsed_args) {
 
 
 void parsedArgsDtor(ParsedArgsPtr parsed_args) {
+    PRINT_ERROR("a");
     stringListDestroy(&parsed_args->block_lists);
     stringListDestroy(&parsed_args->zone_files);
 }

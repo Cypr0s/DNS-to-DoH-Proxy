@@ -3,4 +3,6 @@
 
 #include "error.h"
 
+void logDNSMessage(void);
+
 #endif // OUTPUT_H

@@ -34,4 +34,6 @@ char* stringListIterNext(StringListIteratorPtr it);
 
 void stringListDestroyFree(StringListPtr list);
 
+void stringListReverse(StringListPtr list);
+
 #endif // STRING_LINKED_LIST_H

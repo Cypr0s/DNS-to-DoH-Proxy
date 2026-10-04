@@ -67,10 +67,12 @@ ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state) {
 
 
 static void parseDNSHeader(char* bytes, DNSHeaderPtr query_header) {
-    uint16_t* field = (uint16_t*) query_header;
-    for(uint8_t i = 0; i < DNS_QUERY_MIN_LENGHT / 2; i++) {
-        field[i] = bytesToUShort(bytes + (i * 2));
-    }
+    query_header->id = bytesToUShort(bytes + 0);
+    query_header->flags = bytesToUShort(bytes + 2);
+    query_header->qdcount = bytesToUShort(bytes + 4);
+    query_header->ancount = bytesToUShort(bytes + 6);
+    query_header->nscount = bytesToUShort(bytes + 8);
+    query_header->arcount = bytesToUShort(bytes + 10);
 }
 
 
@@ -82,14 +84,14 @@ static ExitStatus parseDNSQuestion(char* bytes,size_t size, DNSQuestionPtr query
         return STATUS_FAILURE;
     }
 
-    query_question->qname = bytes + DNS_QUERY_MIN_LENGHT;
-    query_question->qname_size = *current_position - DNS_QUERY_MIN_LENGHT;
-
     query_question->qtype = bytesToUShort(bytes + *current_position);
     *current_position += 2;
 
     query_question->qclass = bytesToUShort(bytes + *current_position);
     *current_position += 2;
+
+    query_question->question = bytes + DNS_QUERY_MIN_LENGHT;
+    query_question->question_size = *current_position - DNS_QUERY_MIN_LENGHT;
     return STATUS_SUCCESS;
 }
 
@@ -211,12 +213,12 @@ static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* curre
 }
 
 
-static ExitStatus createDnsAnswer(DNSStatePtr dns_state) {
+ExitStatus createDNSAnswer(DNSStatePtr dns_state) {
     dns_state->reply = malloc(DNS_QUERY_UDP_SIZE); // dns only for now
     if(dns_state->reply == NULL) {
         return STATUS_MALLOC_FAILURE;
     }
-
+    memset(dns_state->reply, 0, DNS_QUERY_UDP_SIZE);
     size_t offset = 0;
     // copy ID
     uShortToBytes(dns_state->query.header.id, dns_state->reply + offset);
@@ -227,5 +229,18 @@ static ExitStatus createDnsAnswer(DNSStatePtr dns_state) {
     flags |= dns_state->query.header.flags & RD;
     flags |= dns_state->query.header.flags & CD;
     uShortToBytes(flags, dns_state->reply + offset);
-    // TODO: copy question if parsed, then basic skelet is finished
+    // 
+    offset += 2;
+    uint16_t qcount = 0;
+    if(dns_state->flags & DNS_FLAG_PARSED_QUESTION) {
+        qcount = 1;
+        uShortToBytes(qcount, dns_state->reply + offset);
+        offset += 6;
+        memcpy(dns_state->reply + offset, dns_state->query.question.question, dns_state->query.question.question_size);
+        offset += dns_state->query.question.question_size;
+
+    } else {
+        uShortToBytes(qcount, dns_state->reply + offset);
+    }
+    return STATUS_SUCCESS;
 }

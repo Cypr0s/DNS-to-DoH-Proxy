@@ -1,5 +1,5 @@
 #include "output.h"
 
-logQuery() {
-
+void logDNSMessage(void) {
+    return;
 }

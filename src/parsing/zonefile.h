@@ -8,6 +8,7 @@
 #include "util/string.h"
 #include <ctype.h>
 #include <arpa/inet.h>
+#include <strings.h>
 
 #define ZONEFILE_COUNTER_MAX UINT32_MAX
 #define ZONEFILE_MIN 0U

@@ -69,8 +69,7 @@ void zoneFileTreeDelete(ZoneFileListTreePtr node) {
     free(node);
 }
 
-static uint8_t isInZone(ZoneFileListTreePtr root, StringListPtr labels, ZoneFileListTreePtr* zone, ZoneFileListTreePtr* name) {
-    *zone = NULL;
+uint8_t isInZone(ZoneFileListTreePtr root, StringListPtr labels, ZoneFileListTreePtr* zone, ZoneFileListTreePtr* name) {
     ZoneFileListTreePtr node = root;
     StringListIterator it;
     stringListIterInit(&it, labels);

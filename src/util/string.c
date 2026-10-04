@@ -1,9 +1,9 @@
 #include "util/string.h"
 
-long convertStrToNum(char* input, size_t min_boundary, size_t max_boundary) {
+ssize_t convertStrToNum(char* input, ssize_t min_boundary, ssize_t max_boundary) {
     char* end;
     errno = 0;
-    long output = strtol(input, &end, 10);
+    ssize_t output = strtol(input, &end, 10);
     if(end == input) {
         return -1;
     }
@@ -22,7 +22,7 @@ uint32_t bytesToUint(char* input) {
     return (uint32_t)((input[0] << 24) | (input[1] << 16) | (input[2] << 8) | input[3]);
 }
 
-static void uShortToBytes(uint16_t value, char *output) {
+void uShortToBytes(uint16_t value, char *output) {
     output[0] = (char)(value >> 8);
     output[1] = (char)(value & 0xFF);
 }

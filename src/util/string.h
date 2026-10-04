@@ -4,8 +4,10 @@
 #include "common.h"
 #include "error.h"
 #include <stdint.h>
+#include <string.h>
+#include "file.h"
 
-long convertStrToNum(char* input, size_t min_boundary, size_t max_boundary);
+ssize_t convertStrToNum(char* input, ssize_t min_boundary, ssize_t max_boundary);
 
 uint16_t bytesToUShort(char* input);
 
@@ -13,6 +15,10 @@ uint32_t bytesToUint(char* input);
 
 uint8_t isValidDomainName(char* name);
 
-static void uShortToBytes(uint16_t value, char *output);
+uint32_t bytesToUint(char* input);
+
+uint16_t bytesToUShort(char* input);
+
+void uShortToBytes(uint16_t value, char *output);
 
 #endif // UTIL_STRING_H

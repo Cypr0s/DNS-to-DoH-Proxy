@@ -22,6 +22,6 @@ ExitStatus blockListTreeAddChild(BlockListTreePtr parent, BlockListTreePtr child
 
 void blockListTreeDelete(BlockListTreePtr node);
 
-static uint8_t domainIsBlocked(BlockListTreePtr root, StringListPtr labels);
+uint8_t isBlocked(BlockListTreePtr root, StringListPtr labels);
 
 #endif // BLOCK_LIST_TREE_H

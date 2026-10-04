@@ -15,6 +15,7 @@ void removeComment(char* line, const char comment_delimeter) {
             *line = '\0';
             return;
         }
+        line++;
     }
 }
 

@@ -53,3 +53,17 @@ void stringListDestroyFree(StringListPtr list) {
     }
     list->head = NULL;
 }
+
+void stringListReverse(StringListPtr list) {
+    StringNodePtr prev = NULL;
+    StringNodePtr curr = list->head;
+
+    while(curr != NULL) {
+        StringNodePtr next = curr->next;
+        curr->next = prev;
+        prev = curr;
+        curr = next;
+    }
+
+    list->head = prev;
+}
