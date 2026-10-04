@@ -67,11 +67,14 @@ typedef enum {
     DNS_FLAG_IS_ROOT = 0x02,
     DNS_FLAG_PARSED_QUESTION = 0x04,
     DNS_FLAG_PARSED_RRS = 0x08,
+    DNS_FLAG_ENTRY_NOT_FOUND = 0x10,
+    DNS_FLAG_NAME_DOESNT_EXIST = 0x20
 } DNSFlags, *DNSFlagsPtr;
 typedef struct {
     DNSQuery query;
     char* reply;
-    size_t reply_size;
+    size_t reply_max_size;
+    size_t reply_current_size;
     DNSQueryReturnState state;
     DNSFlags flags;
 } DNSState, *DNSStatePtr;
@@ -82,8 +85,16 @@ typedef struct {
 #define QTYPE_AXFR 252
 #define QTYPE_IXFR 251
 
+typedef enum {
+    DNS_ANSWER,
+    DNS_AUTHORITY,
+    DNS_ADDITIONAL,
+} DNSFieldType;
+
 ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state);
 
 ExitStatus createDNSAnswer(DNSStatePtr dns_state);
+
+ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, ZoneEntryPtr zone_entry, DNSFieldType type);
 
 #endif // SERVER_DNS_H

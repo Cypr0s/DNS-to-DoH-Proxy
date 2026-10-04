@@ -21,4 +21,6 @@ uint16_t bytesToUShort(char* input);
 
 void uShortToBytes(uint16_t value, char *output);
 
+void uIntToBytes(uint32_t value, char *output);
+
 #endif // UTIL_STRING_H

@@ -6,6 +6,7 @@
 #include "error.h"
 #include <stdint.h>
 #include "data-structures/string-linked-list.h"
+#include <strings.h>
 
 typedef struct blocklist_tree_node {
     char* value;

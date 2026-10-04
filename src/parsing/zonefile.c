@@ -11,7 +11,8 @@ static ZoneTypeString zone_types[] = {
     {"ANY", ENTRY_ANY}
 };
 
-
+static ExitStatus domainToBytes(char* owner, char** out, size_t* out_size);
+static ExitStatus domainToStringList(char* owner, StringListPtr list);
 static ExitStatus checkAndCreateDomainStr(char* token, char* origin, char** out, DNSFileContextPtr ctx);
 static ExitStatus resolveDomainName(char* name, char* origin, char** resolved);
 static ExitStatus isInOrigin(char* name, char* origin, DNSFileContextPtr ctx);
@@ -23,6 +24,72 @@ static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreeP
 static ExitStatus tokenizeLine(char* line_str, StringListPtr list);
 static ExitStatus parseFile(FILE* fp, ZoneFileListTreePtr root, ZoneFileListCtxPtr ctx);
 static void destroyZoneFileCtx(ZoneFileListCtxPtr ctx);
+
+
+static ExitStatus domainToBytes(char* owner, char** out, size_t* out_size) {
+    size_t owner_size = strlen(owner);
+
+    char* bytes = malloc(owner_size + 1);
+    if(bytes == NULL) {
+        return STATUS_MALLOC_FAILURE;
+    }
+
+    size_t domain_pos = 0;
+    size_t label_start = 0;
+
+    for(size_t i = 0; i < owner_size; i++) {
+        if(owner[i] != '.') {
+            continue;
+        }
+        size_t label_len = i - label_start;
+
+        bytes[domain_pos++] = (char)label_len;
+
+        memcpy(bytes + domain_pos,owner + label_start, label_len);
+
+        domain_pos += label_len;
+        label_start = i + 1;
+    }
+
+    bytes[domain_pos++] = 0;
+
+    *out = bytes;
+    *out_size = domain_pos;
+    return STATUS_SUCCESS;
+}
+
+
+static ExitStatus domainToStringList(char* owner, StringListPtr list) {
+    char* label_start = owner;
+    char* label_end = owner;
+
+    while(*label_end != '\0') {
+        if(*label_end == '.') {
+            *label_end = '\0';
+
+            char* label = strdup(label_start);
+            if(label == NULL) {
+                PRINT_ERROR("Memory allocation failure");
+                stringListDestroyFree(list);
+                return STATUS_MALLOC_FAILURE;
+            }
+
+            ExitStatus e = stringListInsert(list, label);
+            if(e != STATUS_SUCCESS) {
+                free(label);
+                stringListDestroyFree(list);
+                return e;
+            }
+
+            *label_end = '.';
+            label_start = label_end + 1;
+        }
+
+        label_end++;
+    }
+
+    return STATUS_SUCCESS;
+}
 
 
 static ExitStatus checkAndCreateDomainStr(char* token, char* origin, char** out, DNSFileContextPtr ctx) {
@@ -245,11 +312,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
                 PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Invalid ipv4 address");
                 return STATUS_EX_CONFIG;
             }
-            zone_entry->entry.a_entry.address = strdup(token);
-            if(zone_entry->entry.a_entry.address == NULL) {
-                PRINT_ERROR("Memory allocation failure");
-                return STATUS_MALLOC_FAILURE;
-            }
+            memcpy(zone_entry->entry.a_entry.address,&addr, IP_ADDRESS_BYTES);
             break;
         }
         case ENTRY_AAAA: {
@@ -268,11 +331,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
                 PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Invalid ipv6 address");
                 return STATUS_EX_CONFIG;
             }
-            zone_entry->entry.aaaa_entry.address = strdup(token);
-            if(zone_entry->entry.aaaa_entry.address == NULL) {
-                PRINT_ERROR("Memory allocation failure");
-                return STATUS_MALLOC_FAILURE;
-            }
+            memcpy(zone_entry->entry.aaaa_entry.address,&addr, IPV6_ADDRESS_BYTES);
             break;
         }
         case ENTRY_CNAME: {
@@ -286,10 +345,13 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
                 return STATUS_EX_CONFIG;
             }
 
-            char* resolved;
-            ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &resolved, &ctx->dns_context);
+            char* cname;
+            ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &cname, &ctx->dns_context);
             CHECK_ERR(e);
-            zone_entry->entry.cname_entry.cname = resolved;
+            e = domainToStringList(cname, &zone_entry->entry.cname_entry.list);
+            CHECK_ERR(e);
+            e = domainToBytes(cname, &zone_entry->entry.cname_entry.cname, &zone_entry->entry.cname_entry.cname_size);
+            CHECK_ERR(e);
             break;
         }
         case ENTRY_MX: {
@@ -309,10 +371,11 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
                 return STATUS_EX_CONFIG;
             }
 
-            char* resolved;
-            ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &resolved, &ctx->dns_context);
+            char* exchange;
+            ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &exchange, &ctx->dns_context);
             CHECK_ERR(e);
-            zone_entry->entry.mx_entry.exchange = resolved;
+            e = domainToBytes(exchange, &zone_entry->entry.mx_entry.exchange, &zone_entry->entry.mx_entry.exchange_size);
+            CHECK_ERR(e);
             break;
         }
         case ENTRY_NS: {
@@ -325,10 +388,11 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
                 return STATUS_EX_CONFIG;
             }
 
-            char* resolved;
-            ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &resolved, &ctx->dns_context);
+            char* nsdname;
+            ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &nsdname, &ctx->dns_context);
             CHECK_ERR(e);
-            zone_entry->entry.ns_entry.nsdname = resolved;
+            e = domainToBytes(nsdname, &zone_entry->entry.ns_entry.nsdname, &zone_entry->entry.ns_entry.nsdname_size);
+            CHECK_ERR(e);
             break;
         }
         case ENTRY_SOA: {
@@ -362,20 +426,23 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
 
             //actual parsing
             // mname
-            char* resolved;
-            ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &resolved, &ctx->dns_context);
+            char* mname;
+            ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &mname, &ctx->dns_context);
             CHECK_ERR(e);
-            zone_entry->entry.soa_entry.mname = resolved;
+            e = domainToBytes(mname, &zone_entry->entry.soa_entry.mname, &zone_entry->entry.soa_entry.mname_size);
+            CHECK_ERR(e);
 
             // rname
+            char* rname;
             token = stringListIterNext(it);
             if(token == NULL) {
                 PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Invalid format");
                 return STATUS_EX_CONFIG;
             }
-            e = checkAndCreateDomainStr(token, ctx->origin, &resolved, &ctx->dns_context);
+            e = checkAndCreateDomainStr(token, ctx->origin, &rname, &ctx->dns_context);
             CHECK_ERR(e);
-            zone_entry->entry.soa_entry.rname = resolved;
+            e = domainToBytes(rname, &zone_entry->entry.soa_entry.rname, &zone_entry->entry.soa_entry.rname_size);
+            CHECK_ERR(e);
             
             // serial
             token = stringListIterNext(it);
@@ -485,24 +552,8 @@ static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreeP
     StringList list;
     stringListInit(&list);
     // create token labels(owner is already checked)
-    char* label_start = owner;
-    char* label_end = owner;
-    while(*label_end != '\0') {
-        if(*label_end == '.') {
-            *label_end = '\0';
-            char* label = strdup(label_start);
-            if(label == NULL) {
-                PRINT_ERROR("Memory allocation failure");
-                stringListDestroyFree(&list);
-                return STATUS_MALLOC_FAILURE;
-            }
-            ExitStatus e = stringListInsert(&list, label);
-            CHECK_ERR_AND_FREE(e, PRINT_ERROR("Memory allocation failure"); stringListDestroyFree(&list););
-            *label_end = '.';
-            label_start = label_end + 1;
-        }
-        label_end++;
-    }
+    ExitStatus e = domainToStringList(owner, &list);
+    CHECK_ERR_AND_FREE(e, stringListDestroyFree(&list););
 
     StringListIterator it;
     stringListIterInit(&it, &list);
@@ -518,7 +569,7 @@ static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreeP
                 stringListDestroyFree(&list);
                 return STATUS_MALLOC_FAILURE;
             }
-            ExitStatus e = zoneFileTreeAddChild(tmp, child);
+            e = zoneFileTreeAddChild(tmp, child);
             CHECK_ERR_AND_FREE(e, free(child);PRINT_ERROR("Memory allocation failure");stringListDestroyFree(&list););
         } else {
             free(val);
@@ -526,8 +577,14 @@ static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreeP
 
         tmp = child;
     }
-    stringListDestroy(&list);
+    stringListDestroyFree(&list);
     tmp->is_apex = 1;
+
+    if(tmp->full_domain_name == NULL) {
+        e = domainToBytes(owner, &tmp->full_domain_name, &tmp->full_domain_name_size);
+        CHECK_ERR(e);
+    } 
+
     ZoneListPtr zone_entry_list = &(tmp->list);
     // cname check
     if(entry->entry_type == ENTRY_CNAME && zone_entry_list->head != NULL) {
@@ -551,7 +608,7 @@ static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreeP
     }
 
     // actual insertion
-    ExitStatus e = zoneListInsert(zone_entry_list, entry);
+    e = zoneListInsert(zone_entry_list, entry);
     CHECK_ERR(e);
 
     return STATUS_SUCCESS;

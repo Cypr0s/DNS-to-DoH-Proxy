@@ -3,23 +3,27 @@
 
 #include <stdint.h>
 #include "error.h"
+#include "common.h"
+#include "data-structures/string-linked-list.h"
 
 typedef enum {
-    ENTRY_SOA,
-    ENTRY_NS,
-    ENTRY_A,
-    ENTRY_AAAA,
-    ENTRY_CNAME,
-    ENTRY_MX,
-    ENTRY_VALID,
-    ENTRY_INVALID,
-    ENTRY_ANY
+    ENTRY_SOA = 6,
+    ENTRY_NS = 2,
+    ENTRY_A = 1,
+    ENTRY_AAAA = 28,
+    ENTRY_CNAME = 5,
+    ENTRY_MX = 15,
+    ENTRY_VALID = 0,
+    ENTRY_INVALID = -1,
+    ENTRY_ANY = 255
 } ZoneEntryEnum;
 
 
 typedef struct {
     char* mname;
+    size_t mname_size;
     char* rname;
+    size_t rname_size;
     uint32_t serial;
     uint32_t refresh;
     uint32_t retry;
@@ -30,32 +34,37 @@ typedef struct {
 
 typedef struct {
     char* nsdname;
+    size_t nsdname_size;
 } NSEntry, *NSEntryPtr;
 
 
 typedef struct {
-    char* address;
+    char address[IP_ADDRESS_BYTES];
 } AEntry, *AEntryPtr;
 
 
 typedef struct {
-    char* address;
+    char address[IPV6_ADDRESS_BYTES];
 } AAAAEntry, *AAAAEntryPtr;
 
 
 typedef struct {
     char* cname;
+    StringList list;
+    size_t cname_size;
 } CNAMEEntry, *CNAMEEntryPtr;
 
 
 typedef struct {
     int16_t preference;
     char* exchange;
+    size_t exchange_size;
 } MXEntry, *MXEntryPtr;
 
 typedef struct {
-    int8_t entry_type;
+    int16_t entry_type;
     uint32_t ttl;
+    uint16_t rdata_size;
     union {
         MXEntry mx_entry;
         CNAMEEntry cname_entry;
@@ -91,5 +100,7 @@ void zoneListDestroy(ZoneListPtr list);
 void zoneListIterInit(ZoneListIteratorPtr it, ZoneListPtr list);
 
 ZoneEntryPtr zoneListIterNext(ZoneListIteratorPtr it);
+
+ZoneEntryPtr getEntry(ZoneListPtr list, int8_t entry_type);
 
 #endif // ZONE_ENTRY_LIST_H

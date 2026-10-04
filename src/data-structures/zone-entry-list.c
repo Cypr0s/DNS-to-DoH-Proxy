@@ -47,3 +47,15 @@ ZoneEntryPtr zoneListIterNext(ZoneListIteratorPtr it) {
     it->curr = it->curr->next;
     return &tmp->zone_entry;
 }
+
+
+ZoneEntryPtr getEntry(ZoneListPtr list, int8_t entry_type) {
+    ZoneNodePtr current = list->head;
+    while(current != NULL) {
+        if(current->zone_entry.entry_type == entry_type) {
+            return &current->zone_entry;
+        }
+        current = current->next;
+    }
+    return NULL;
+}

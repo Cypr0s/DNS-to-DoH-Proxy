@@ -1,5 +1,5 @@
 #include "output.h"
 
 void logDNSMessage(void) {
-    return;
+    return; // cancer logs :)
 }

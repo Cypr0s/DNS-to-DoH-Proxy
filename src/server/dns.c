@@ -219,28 +219,114 @@ ExitStatus createDNSAnswer(DNSStatePtr dns_state) {
         return STATUS_MALLOC_FAILURE;
     }
     memset(dns_state->reply, 0, DNS_QUERY_UDP_SIZE);
-    size_t offset = 0;
     // copy ID
-    uShortToBytes(dns_state->query.header.id, dns_state->reply + offset);
-    offset += 2;
+    uShortToBytes(dns_state->query.header.id, dns_state->reply + dns_state->reply_current_size);
+    dns_state->reply_current_size += 2;
     uint16_t flags = QR | RA;
 
     flags |= dns_state->query.header.flags & OPCODE;
     flags |= dns_state->query.header.flags & RD;
     flags |= dns_state->query.header.flags & CD;
-    uShortToBytes(flags, dns_state->reply + offset);
-    // 
-    offset += 2;
+    uShortToBytes(flags, dns_state->reply + dns_state->reply_current_size);
+
+    // qcounts 
+    dns_state->reply_current_size += 2;
     uint16_t qcount = 0;
     if(dns_state->flags & DNS_FLAG_PARSED_QUESTION) {
         qcount = 1;
-        uShortToBytes(qcount, dns_state->reply + offset);
-        offset += 6;
-        memcpy(dns_state->reply + offset, dns_state->query.question.question, dns_state->query.question.question_size);
-        offset += dns_state->query.question.question_size;
-
+        uShortToBytes(qcount, dns_state->reply + dns_state->reply_current_size);
+        dns_state->reply_current_size += 6;
+        memcpy(dns_state->reply + dns_state->reply_current_size, dns_state->query.question.question, dns_state->query.question.question_size);
+        dns_state->reply_current_size += dns_state->query.question.question_size;
     } else {
-        uShortToBytes(qcount, dns_state->reply + offset);
+        uShortToBytes(qcount, dns_state->reply + dns_state->reply_current_size);
+    }
+    return STATUS_SUCCESS;
+}
+
+
+ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, ZoneEntryPtr zone_entry, DNSFieldType type) {
+    if(type == DNS_ANSWER) {
+        uint16_t answer_count = bytesToUShort(dns_state->reply + 6);
+        answer_count++;
+        uShortToBytes(answer_count, dns_state->reply + 6);
+    } else {
+        uint16_t authority_count = bytesToUShort(dns_state->reply + 8);
+        authority_count++;
+        uShortToBytes(authority_count, dns_state->reply + 8);
+    }
+    // owner
+    size_t owner_size = strlen(owner);
+    memcpy(dns_state->reply + dns_state->reply_current_size, owner, owner_size);
+    dns_state->reply_current_size += owner_size;
+
+    // type
+    uShortToBytes(zone_entry->entry_type, dns_state->reply + dns_state->reply_current_size);
+    dns_state->reply_current_size += 2;
+
+    // class
+    uShortToBytes(dns_state->query.question.qclass, dns_state->reply + dns_state->reply_current_size);
+    dns_state->reply_current_size += 2;
+
+    // ttl
+    if(dns_state->flags & (DNS_FLAG_NAME_DOESNT_EXIST | DNS_FLAG_ENTRY_NOT_FOUND)) {
+        uint32_t val = zone_entry->entry.soa_entry.minimum < zone_entry->ttl ? zone_entry->entry.soa_entry.minimum : zone_entry->ttl;
+        uIntToBytes(val, dns_state->reply + dns_state->reply_current_size);
+    } else {
+        uIntToBytes(zone_entry->ttl, dns_state->reply + dns_state->reply_current_size);
+    }
+    dns_state->reply_current_size += 4;
+    // rdata
+    uShortToBytes(zone_entry->rdata_size, dns_state->reply + dns_state->reply_current_size);
+    dns_state->reply_current_size += 2;
+
+    switch(zone_entry->entry_type) {
+        case ENTRY_A:
+            memcpy(dns_state->reply + dns_state->reply_current_size, zone_entry->entry.a_entry.address, IP_ADDRESS_BYTES);
+            dns_state->reply_current_size += IP_ADDRESS_BYTES;
+            break;
+        case ENTRY_AAAA:
+            memcpy(dns_state->reply + dns_state->reply_current_size, zone_entry->entry.aaaa_entry.address, IPV6_ADDRESS_BYTES);
+            dns_state->reply_current_size += IPV6_ADDRESS_BYTES;
+            break;
+        case ENTRY_CNAME:
+            memcpy(dns_state->reply + dns_state->reply_current_size, zone_entry->entry.cname_entry.cname, zone_entry->entry.cname_entry.cname_size);
+            dns_state->reply_current_size += zone_entry->entry.cname_entry.cname_size;
+            break;
+        case ENTRY_MX:
+            uShortToBytes(zone_entry->entry.mx_entry.preference, dns_state->reply + dns_state->reply_current_size);
+            dns_state->reply_current_size+=2;
+
+            memcpy(dns_state->reply + dns_state->reply_current_size, zone_entry->entry.mx_entry.exchange, zone_entry->entry.mx_entry.exchange_size);
+            dns_state->reply_current_size += zone_entry->entry.mx_entry.exchange_size;
+            break;
+        case ENTRY_NS:
+            memcpy(dns_state->reply + dns_state->reply_current_size, zone_entry->entry.ns_entry.nsdname, zone_entry->entry.ns_entry.nsdname_size);
+            dns_state->reply_current_size += zone_entry->entry.ns_entry.nsdname_size;
+            break;
+        case ENTRY_SOA:
+            //mname 
+            memcpy(dns_state->reply + dns_state->reply_current_size, zone_entry->entry.soa_entry.mname, zone_entry->entry.soa_entry.mname_size);
+            dns_state->reply_current_size += zone_entry->entry.soa_entry.mname_size;
+            //rname
+            memcpy(dns_state->reply + dns_state->reply_current_size, zone_entry->entry.soa_entry.rname, zone_entry->entry.soa_entry.rname_size);
+            dns_state->reply_current_size += zone_entry->entry.soa_entry.rname_size;
+            // serial
+            uIntToBytes(zone_entry->entry.soa_entry.serial, dns_state->reply + dns_state->reply_current_size);
+            dns_state->reply_current_size += 4;
+            // refresh
+            uIntToBytes(zone_entry->entry.soa_entry.refresh, dns_state->reply + dns_state->reply_current_size);
+            dns_state->reply_current_size += 4;
+            // retry
+            uIntToBytes(zone_entry->entry.soa_entry.retry, dns_state->reply + dns_state->reply_current_size);
+            dns_state->reply_current_size += 4;
+            // expire
+            uIntToBytes(zone_entry->entry.soa_entry.expire, dns_state->reply + dns_state->reply_current_size);
+            dns_state->reply_current_size += 4;
+            // minimum
+            uIntToBytes(zone_entry->entry.soa_entry.minimum, dns_state->reply + dns_state->reply_current_size);
+            dns_state->reply_current_size += 4;
+            break;
     }
     return STATUS_SUCCESS;
 }

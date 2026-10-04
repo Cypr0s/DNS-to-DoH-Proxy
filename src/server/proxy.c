@@ -46,7 +46,7 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
         CHECK_ERR(e);
         // response
         if(dns_state.reply != NULL) {
-            msg_size = sendto(fd, dns_state.reply, dns_state.reply_size, 0, (struct sockaddr*) &address, &address_size);
+            msg_size = sendto(fd, dns_state.reply, dns_state.reply_max_size, 0, (struct sockaddr*) &address, &address_size);
             if(msg_size < 0) {
                 return STATUS_FAILURE;
             }
@@ -105,14 +105,66 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
             // local
             uint8_t return_flag = isInZone(server->zone_file_root, &dns_state->query.question.labels, &zone, &name);
             if(return_flag) {
-                // name doesnt exist
+                response_header_flags |= AA;
+                dns_state->state = DNS_STATE_LOCAL;
+                // NAME DOESNT EXIST
+                ZoneEntryPtr entry = NULL;
                 if(name == NULL) {
                     response_header_flags |= RCODE_NXDOMAIN;
                     // add SOA
+                    entry = getEntry(&zone->list, ENTRY_SOA); // NULL cannot happen here we found a zone(it must have one SOA)
+                    CHECK_ERR(e);
+                    ExitStatus e = addAnswerField(dns_state, zone->full_domain_name, entry, DNS_AUTHORITY);
+                    CHECK_ERR(e);
                     break;
                 }
-                dns_state->state = DNS_STATE_LOCAL;
-                break;
+
+                // any entry
+                if(dns_state->query.question.qtype == ENTRY_ANY) {
+                    ZoneListIterator it = {0};
+                    zoneListIterInit(&it, &name->list);
+                    while((entry = zoneListIterNext(&it)) != NULL) {
+                        ExitStatus e = addAnswerField(dns_state,name->full_domain_name, entry, DNS_ANSWER);
+                        CHECK_ERR(e);
+                    }
+                    break;
+                }
+        
+                // requested
+                entry = getEntry(&name->list, dns_state->query.question.qtype);
+                if(entry != NULL) {
+                    ZoneListIterator it = {0};
+                    zoneListIterInit(&it, &name->list);
+                    while((entry = zoneListIterNext(&it)) != NULL) {
+                        if(entry->entry_type == dns_state->query.question.qtype) {
+                            ExitStatus e = addAnswerField(dns_state, name->full_domain_name, entry, DNS_ANSWER);
+                            CHECK_ERR(e);
+                        }
+                    }
+                    break;
+                }
+
+                // doesnt exist, check cname
+                entry = getEntry(&name->list, ENTRY_CNAME);
+
+                if(entry != NULL) {
+                    ZoneFileListTreePtr current_name = name;
+                    ZoneFileListTreePtr current_zone = zone;
+                    for(int8_t i = 0; i < 8; i++) {
+                        ZoneEntryPtr cname = getEntry(&current_name->list, ENTRY_CNAME);
+                        if(cname == NULL) {
+                            break;
+                        }
+
+                        ExitStatus e = addAnswerField(dns_state,current_name->full_domain_name,cname,DNS_ANSWER);
+                        CHECK_ERR(e);
+
+                        // TODO check if exists, ...
+
+                    }
+
+                    break;
+                }
             }
             // blocked
             return_flag = isBlocked(server->block_list_root, &dns_state->query.question.labels);
@@ -121,7 +173,7 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
                 response_header_flags |= RCODE_NXDOMAIN;
                 break;
             }
-            // forward here
+            // forward 
             free(dns_state->reply);
             dns_state->state = DNS_STATE_FORWARDED;
             dns_state->reply = NULL;

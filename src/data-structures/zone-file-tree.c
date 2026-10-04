@@ -6,7 +6,7 @@ ZoneFileListTreePtr zoneFileTreeFindNode(ZoneFileListTreePtr node, char* val) {
     }
 
     for(size_t i = 0; i < node->child_count; i++) {
-        if(!strcmp(node->children[i]->value, val)) {
+        if(!strcasecmp(node->children[i]->value, val)) {
             return node->children[i];
         }
     }
@@ -25,7 +25,8 @@ ZoneFileListTreePtr zoneFileTreeCreateNode(char* val) {
     zoneListInit(&(node->list));
     node->child_count = 0;
     node->children = NULL;
-    node->parent = NULL;
+    node->full_domain_name = NULL;
+    node->full_domain_name_size = 0;
 
     return node;
 }
@@ -46,8 +47,6 @@ ExitStatus zoneFileTreeAddChild(ZoneFileListTreePtr parent, ZoneFileListTreePtr 
     parent->children[parent->child_count] = child;
     parent->child_count++;
 
-    child->parent = parent;
-
     return STATUS_SUCCESS;
 }
 
@@ -60,12 +59,18 @@ void zoneFileTreeDelete(ZoneFileListTreePtr node) {
     for(size_t i = 0; i < node->child_count; i++) {
         zoneFileTreeDelete(node->children[i]);
     }
+    if(node->children != NULL) {
+        free(node->children);
+    }
+    if(node->value != NULL) {
+        free(node->value);
+    }
 
-    free(node->children);
-    free(node->value);
+    if(node->full_domain_name != NULL) {
+        free(node->full_domain_name);
+    }
 
     zoneListDestroy(&(node->list));
-
     free(node);
 }
 

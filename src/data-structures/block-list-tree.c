@@ -8,7 +8,7 @@ BlockListTreePtr blockListTreeFindNode(BlockListTreePtr node, char* val) {
     }
 
     for(size_t i = 0; i < node->child_count; i++) {
-        if(!strcmp(node->children[i]->value, val)) {
+        if(!strcasecmp(node->children[i]->value, val)) {
             return node->children[i];
         }
     }

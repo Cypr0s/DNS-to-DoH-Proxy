@@ -27,6 +27,13 @@ void uShortToBytes(uint16_t value, char *output) {
     output[1] = (char)(value & 0xFF);
 }
 
+void uIntToBytes(uint32_t value, char *output) {
+    output[0] = (char)(value >> 24);
+    output[1] = (char)(value >> 16);
+    output[2] = (char)(value >> 8);
+    output[3] = (char)(value & 0xFF);
+}
+
 
 uint8_t isValidDomainName(char* name) {
     if(name == NULL || *name == '\0') {
