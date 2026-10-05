@@ -14,7 +14,7 @@
 #define POLL_TIMEOUT 150 // 
 #define DNS_QUERY_MIN_LENGHT 12 // octets
 #define TCP_CONNECTION_TIMEOUT 10 // seconds
-#define DNS_QUERY_UDP_SIZE 512
+#define DNS_QUERY_MAX_SIZE 65536
 #define IP_ADDRESS_BYTES 4
 #define IPV6_ADDRESS_BYTES 16
 

@@ -16,10 +16,13 @@ typedef enum {
 } ConnectionType;
 
 typedef struct connection_node {
-    int32_t timeout;
+    struct timespec last_event;
     ConnectionType type;
     struct sockaddr_storage address;
-    int address_size;
+    int32_t address_size;
+    char message_buffer[DNS_QUERY_MAX_SIZE];
+    uint16_t currently_received;
+    uint16_t message_size;
 } Connection, *ConnectionPtr;
 
 typedef struct {

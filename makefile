@@ -1,4 +1,4 @@
-#taken from my project https://github.com/Cypr0s/CyprSH/blob/main/Makefile and modified
+#taken from my project https://github.com/Cypr0s/CyprSH/blob/main/Makefile and modified with AI as per spec
 
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c17 -pedantic -O2 -Isrc -D_POSIX_C_SOURCE=200809L 

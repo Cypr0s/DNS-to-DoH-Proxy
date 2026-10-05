@@ -6,7 +6,7 @@
 #include "parsing/blocklist.h"
 #include "parsing/argument.h"
 #include "server/dns.h"
-
+#include "output.h"
 typedef struct {
     ConnectionVector connections;
     BlockListTreePtr block_list_root;
