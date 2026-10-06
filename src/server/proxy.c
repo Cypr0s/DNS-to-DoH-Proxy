@@ -39,7 +39,7 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
         address_size = sizeof(struct sockaddr_storage);
         ssize_t msg_size = recvfrom(fd, bytes, DNS_QUERY_MAX_SIZE, 0, (struct sockaddr *)&address, &address_size);
         if(msg_size < 0) {
-            if(errno == EAGAIN) {
+            if(errno == EAGAIN  || errno == EWOULDBLOCK) {
                 break;
             }
             // actual error
@@ -59,14 +59,120 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
             rcode = flags & 0x000f;
             free(dns_state.reply);
         }
-        logDNSMessage(&address, address_size, dns_state.query.question.question, dns_state.query.question.question_size, dns_state.query.question.qtype, dns_state.state, rcode);
+        logDNSMessage(
+            &address, 
+            address_size, 
+            dns_state.query.question.question, 
+            dns_state.query.question.question_size,
+            dns_state.query.question.qtype,
+            dns_state.state, 
+            rcode
+        );
     }
     return STATUS_SUCCESS;
 }
 
-static ExitStatus processTCPMessages(int fd, ProxyServerPtr server) {
-    //TODO
-    ssize_t bytes = recv(fd);
+static ExitStatus sendTCPmessages(size_t connection_index, ProxyServerPtr server) {
+    ConnectionPtr con = &server->connections.connections[connection_index];
+    struct pollfd* poll_id = &server->connections.poll_fds[connection_index];
+    while(1) {
+        TCPReplyPtr reply = tcpReplyQueueGet(&con->reply_queue);
+
+        if(reply == NULL) {
+            poll_id->events &= ~POLLOUT;
+            return STATUS_SUCCESS;
+        }
+
+        ssize_t sent = send(poll_id->fd, reply->data + reply->sent, reply->size - reply->sent,0);
+        if(sent < 0) {
+            if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                return STATUS_SUCCESS;
+            }
+
+            return STATUS_FAILURE;
+        }
+
+        ExitStatus e = getTime(&con->last_event);
+        CHECK_ERR(e);
+
+        reply->sent += (size_t)sent;
+
+        if(reply->sent == reply->size) {
+            tcpReplyQueueDelete(&con->reply_queue);
+        } else {
+            return STATUS_SUCCESS;
+        }
+    }
+}
+
+static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr server) {
+    ConnectionPtr con = &server->connections.connections[connection_index];
+    struct pollfd* poll_id = &server->connections.poll_fds[connection_index]; 
+    while(1) {
+        // Read available bytes into the remaining buffer space.
+        ssize_t received = recv(poll_id->fd, con->message_buffer + con->currently_received, DNS_QUERY_MAX_SIZE + TCP_MESSAGE_SIZE_BYTES - con->currently_received, 0);
+        if(received < 0) {
+            if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                break;
+            }
+            return STATUS_FAILURE;
+        }
+
+        if(received == 0) {
+            return connectionVectorDelete(&server->connections, poll_id->fd);
+        }
+
+        con->currently_received += (size_t)received;
+
+        while(con->currently_received >= TCP_MESSAGE_SIZE_BYTES) {
+            uint16_t message_size = bytesToUShort(con->message_buffer);
+            if(message_size == 0) {
+                return connectionVectorDelete(&server->connections, poll_id->fd);
+            }
+
+            if(con->currently_received < ((size_t)(message_size) + TCP_MESSAGE_SIZE_BYTES)) {
+                break;
+            }
+
+            ExitStatus e = getTime(&con->last_event);
+            CHECK_ERR(e);
+
+            DNSState dns_state = {0};
+            ExitStatus e = handleDNSQuery((char*)con->message_buffer + TCP_MESSAGE_SIZE_BYTES,message_size, server,&dns_state);
+            CHECK_ERR(e);
+            
+            // add reply, log
+            int8_t rcode = -1;
+            if(dns_state.reply != NULL) {
+                uint16_t flags = bytesToUShort(dns_state.reply + 2);
+                rcode = flags & 0x000f;
+
+                e = tcpReplyQueuePush(&con->reply_queue, dns_state.reply, dns_state.reply_current_size);
+                CHECK_ERR(e);
+
+                free(dns_state.reply);
+
+                poll_id->events |= POLLOUT;
+            }
+
+            logDNSMessage(
+                &con->address, 
+                con->address_size,
+                dns_state.query.question.question,
+                dns_state.query.question.question_size,
+                dns_state.query.question.qtype,
+                dns_state.state,
+                rcode
+            );
+
+            if(dns_state.state == DNS_STATE_DROPPED) {
+                return connectionVectorDelete(&server->connections, poll_id->fd);
+            }
+
+            con->currently_received -= message_size + TCP_MESSAGE_SIZE_BYTES;
+            memmove(con->message_buffer, con->message_buffer + message_size + TCP_MESSAGE_SIZE_BYTES, con->currently_received);
+        }
+    }
     return STATUS_SUCCESS;
 }
 
@@ -107,19 +213,17 @@ static ExitStatus handleEvents(ProxyServerPtr server) {
                 CHECK_ERR(e);
                 break;
             case TCP_CLIENT:
-                e = processTCPMessages(server->connections.poll_fds[i].fd, server);
+                e = processTCPMessages(i, server);
                 CHECK_ERR(e);
-                if(server->connections.connections[i].type == TCP_CLIENT) {
                     // check timeout, close connection
                     // firstly check if no outstanding connections
-                    size_t time_difference;
-                    e = getTimeDifference(server->connections.connections[i].last_event, &time_difference);
-                    if(time_difference > TCP_CONNECTION_TIMEOUT * 1000) {
-                        e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
-                        CHECK_ERR(e);
-                        i--;
-                        continue;
-                    }
+                size_t time_difference;
+                e = getTimeDifference(server->connections.connections[i].last_event, &time_difference);
+                if(time_difference > TCP_CONNECTION_TIMEOUT * 1000) {
+                    e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
+                    CHECK_ERR(e);
+                    i--;
+                    continue;
                 }
                 break;
             default:

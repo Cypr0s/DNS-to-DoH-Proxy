@@ -8,6 +8,7 @@
 #include <unistd.h> // close
 #include <stdint.h>
 #include <sys/socket.h>
+#include "data-structures/reply-queue.h"
 
 typedef enum {
     UDP_LISTEN,
@@ -20,6 +21,7 @@ typedef struct connection_node {
     ConnectionType type;
     struct sockaddr_storage address;
     int32_t address_size;
+    TCPReplyQueue reply_queue;
     char message_buffer[DNS_QUERY_MAX_SIZE];
     uint16_t currently_received;
     uint16_t message_size;

@@ -10,6 +10,7 @@
 #define DNS_MAX_TOKEN_LENGTH 254 // char
 #define DNS_MAX_LABEL_COUNT 127 // chars
 #define DNS_MAX_LABEL_LENGTH 63 // chars
+#define TCP_MESSAGE_SIZE_BYTES 2
 #define LONGEST_IPV6 45 // bytes
 #define POLL_TIMEOUT 150 // 
 #define DNS_QUERY_MIN_LENGHT 12 // octets

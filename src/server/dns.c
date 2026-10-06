@@ -214,11 +214,11 @@ static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* curre
 
 
 ExitStatus createDNSAnswer(DNSStatePtr dns_state) {
-    dns_state->reply = malloc(DNS_QUERY_UDP_SIZE); // dns only for now
+    dns_state->reply = malloc(DNS_QUERY_MAX_SIZE); // dns only for now
     if(dns_state->reply == NULL) {
         return STATUS_MALLOC_FAILURE;
     }
-    memset(dns_state->reply, 0, DNS_QUERY_UDP_SIZE);
+    memset(dns_state->reply, 0, DNS_QUERY_MAX_SIZE);
     // copy ID
     uShortToBytes(dns_state->query.header.id, dns_state->reply + dns_state->reply_current_size);
     dns_state->reply_current_size += 2;
