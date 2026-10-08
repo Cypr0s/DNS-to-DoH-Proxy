@@ -1,7 +1,8 @@
 #include "server/socket.h"
 
 ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
-    *fd = socket(n, t, 0);
+    int8_t network_type = n == NETWORK_IPV4 ? AF_INET : AF_INET6; 
+    *fd = socket(network_type, t, 0);
     if(*fd == -1) {
         // todo
         PRINT_ERROR("Cant open socket");
@@ -31,26 +32,26 @@ ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
 
 
 ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, TransportType t) {
-
+    int8_t network_type = n == NETWORK_IPV4 ? AF_INET : AF_INET6; 
     struct sockaddr_storage addr = {0};
 
     if(n == NETWORK_IPV4) {
         struct sockaddr_in *ipv4 = (struct sockaddr_in *)&addr;
         if(address == NULL) {
             ipv4->sin_addr.s_addr = htonl(INADDR_ANY);
-        } else if(inet_pton(n, address, &ipv4->sin_addr) != 1) {
+        } else if(inet_pton(network_type, address, &ipv4->sin_addr) != 1) {
             PRINT_ARGUMENT_PARSE_ERROR("`%s` address is invalid", address);
             return STATUS_EX_USAGE;
         }
 
-        ipv4->sin_family = n;
+        ipv4->sin_family = network_type;
         ipv4->sin_port = htons(port);
     } else {
         struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)&addr;
 
         if(address == NULL) {
             ipv6->sin6_addr = in6addr_any;
-        } else if(inet_pton(n, address, &ipv6->sin6_addr) != 1) {
+        } else if(inet_pton(network_type, address, &ipv6->sin6_addr) != 1) {
             PRINT_ARGUMENT_PARSE_ERROR("`%s` address is invalid", address);
             return STATUS_EX_USAGE;
         }
@@ -114,7 +115,6 @@ ExitStatus prepareSockets(ParsedArgsPtr parsed_arguments, ConnectionVectorPtr co
     Connection c = {0};
     e = connectionVectorInsert(connections, fd, c);
     CHECK_ERR(e);
-    // PRINT LISTEN HERE
 
     int tcp_fd;
     e = createSocket(TRANSPORT_TCP, n, &tcp_fd);
@@ -125,7 +125,6 @@ ExitStatus prepareSockets(ParsedArgsPtr parsed_arguments, ConnectionVectorPtr co
     c = (Connection){0};
     e = connectionVectorInsert(connections, fd, c);
     CHECK_ERR(e);
-    // PRINT LISTEN HERE
 
     return STATUS_SUCCESS;
 }

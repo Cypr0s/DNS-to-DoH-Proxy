@@ -15,11 +15,11 @@ ssize_t convertStrToNum(char* input, ssize_t min_boundary, ssize_t max_boundary)
 }
 
 uint16_t bytesToUShort(char* input) {
-    return (uint16_t)((input[0] << 8) | input[1]); 
+    return (uint16_t)(((unsigned char)input[0] << 8) | (unsigned char)input[1]); 
 }
 
 uint32_t bytesToUint(char* input) {
-    return (uint32_t)((input[0] << 24) | (input[1] << 16) | (input[2] << 8) | input[3]);
+    return (uint32_t)(((unsigned char)input[0] << 24) | ((unsigned char)input[1] << 16) | ((unsigned char)input[2] << 8) | (unsigned char)input[3]);
 }
 
 void uShortToBytes(uint16_t value, char *output) {

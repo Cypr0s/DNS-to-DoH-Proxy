@@ -62,6 +62,7 @@ static ExitStatus addListToTree(StringListPtr list, BlockListTreePtr root) {
 static ExitStatus processToken(char* token, BlockListTreePtr root, BlockListCtxPtr ctx) {
     for(size_t i = 0; i < ARRAY_SIZE(ignored_blocks); i++) {
         if(!strcmp(ignored_blocks[i], token)) {
+            ctx->flags &= ~BLOCKLIST_IS_FIRST_TOKEN;
             return STATUS_SUCCESS;
         }
     }

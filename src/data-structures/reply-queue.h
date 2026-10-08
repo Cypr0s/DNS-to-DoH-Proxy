@@ -1,7 +1,11 @@
+#ifndef REPLY_QUEUE_H
+#define REPLY_QUEUE_H
+
 #include <stdio.h>
 #include "error.h"
 #include "common.h"
 #include <stdint.h>
+#include "util/string.h"
 
 typedef struct TCPReply {
     char* data;
@@ -22,4 +26,6 @@ ExitStatus tcpReplyQueuePush(TCPReplyQueuePtr queue, char* reply, size_t reply_s
 
 void tcpReplyQueueDelete(TCPReplyQueuePtr queue);
 
-static TCPReplyPtr tcpReplyQueueGet(TCPReplyQueuePtr queue);
+TCPReplyPtr tcpReplyQueueGet(TCPReplyQueuePtr queue);
+
+#endif

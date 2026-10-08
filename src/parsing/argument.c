@@ -26,7 +26,6 @@ void parsedArgsCtor(ParsedArgsPtr parsed_args) {
 
 
 void parsedArgsDtor(ParsedArgsPtr parsed_args) {
-    PRINT_ERROR("a");
     stringListDestroy(&parsed_args->block_lists);
     stringListDestroy(&parsed_args->zone_files);
 }
@@ -52,6 +51,7 @@ ExitStatus parseArguments(int argc, char**argv, ParsedArgsPtr parsed_args) {
         parsed_args->flags |= arg->flag;
 
         if(arg->flag == ARG_HELP) {
+            PRINT_ERROR(HELP_MESAGE);
             return STATUS_SUCCESS;
         }
 

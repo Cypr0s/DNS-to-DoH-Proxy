@@ -293,10 +293,9 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
 
     switch(zone_entry->entry_type) {
         case ENTRY_INVALID:
+        case ENTRY_ANY:
             return STATUS_EX_CONFIG;
         case ENTRY_VALID:
-        case ENTRY_ANY:
-            // TODO INSERT EVEN IF ITS VALID
             break;
         case ENTRY_A: {
             if(ctx->origin == NULL) {
@@ -313,6 +312,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
                 return STATUS_EX_CONFIG;
             }
             memcpy(zone_entry->entry.a_entry.address,&addr, IP_ADDRESS_BYTES);
+            zone_entry->rdata_size = IP_ADDRESS_BYTES;
             break;
         }
         case ENTRY_AAAA: {
@@ -332,6 +332,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
                 return STATUS_EX_CONFIG;
             }
             memcpy(zone_entry->entry.aaaa_entry.address,&addr, IPV6_ADDRESS_BYTES);
+            zone_entry->rdata_size = IPV6_ADDRESS_BYTES;
             break;
         }
         case ENTRY_CNAME: {
@@ -351,6 +352,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             e = domainToStringList(cname, &zone_entry->entry.cname_entry.list);
             CHECK_ERR(e);
             e = domainToBytes(cname, &zone_entry->entry.cname_entry.cname, &zone_entry->entry.cname_entry.cname_size);
+            zone_entry->rdata_size = zone_entry->entry.cname_entry.cname_size;
             CHECK_ERR(e);
             break;
         }
@@ -376,6 +378,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             CHECK_ERR(e);
             e = domainToBytes(exchange, &zone_entry->entry.mx_entry.exchange, &zone_entry->entry.mx_entry.exchange_size);
             CHECK_ERR(e);
+            zone_entry->rdata_size = zone_entry->entry.mx_entry.exchange_size + 2;
             break;
         }
         case ENTRY_NS: {
@@ -393,6 +396,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             CHECK_ERR(e);
             e = domainToBytes(nsdname, &zone_entry->entry.ns_entry.nsdname, &zone_entry->entry.ns_entry.nsdname_size);
             CHECK_ERR(e);
+            zone_entry->rdata_size = zone_entry->entry.ns_entry.nsdname_size;
             break;
         }
         case ENTRY_SOA: {
@@ -505,6 +509,8 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
                 return STATUS_EX_CONFIG;
             }
             zone_entry->entry.soa_entry.minimum = (uint32_t) minimum;
+            zone_entry->rdata_size = zone_entry->entry.soa_entry.mname_size + zone_entry->entry.soa_entry.rname_size + 20;
+            break;
         }
     }
 

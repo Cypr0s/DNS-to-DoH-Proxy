@@ -60,6 +60,6 @@ void tcpReplyQueueClean(TCPReplyQueue *queue) {
     }
 }
 
-static TCPReplyPtr tcpReplyQueueGet(TCPReplyQueuePtr queue) {
+TCPReplyPtr tcpReplyQueueGet(TCPReplyQueuePtr queue) {
     return queue->head;
 }

@@ -16,9 +16,9 @@ typedef enum {
  } TransportType;
 
 typedef enum {
-    NETWORK_IPV6 = AF_INET6,
-    NETWORK_IPV4 = AF_INET,
-    NETWORK_BOTH = AF_INET6,
+    NETWORK_IPV6 = 3,
+    NETWORK_IPV4 = 2,
+    NETWORK_BOTH = 1,
 } NetworkType;
 
 #define CONNECTION_REQUESTS_MAX 64 //  64 client

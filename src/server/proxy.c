@@ -2,6 +2,9 @@
 
 static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections);
 static ExitStatus processUDPMessages(int fd, ProxyServerPtr server);
+static ExitStatus sendTCPmessages(size_t connection_index, ProxyServerPtr server);
+static ExitStatus getTime(struct timespec* time);
+static ExitStatus getTimeDifference(struct timespec start_time, size_t* out_val);
 static ExitStatus handleEvents(ProxyServerPtr server);
 static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPtr server, DNSStatePtr dns_state);
 
@@ -138,7 +141,7 @@ static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr ser
             CHECK_ERR(e);
 
             DNSState dns_state = {0};
-            ExitStatus e = handleDNSQuery((char*)con->message_buffer + TCP_MESSAGE_SIZE_BYTES,message_size, server,&dns_state);
+            e = handleDNSQuery((char*)con->message_buffer + TCP_MESSAGE_SIZE_BYTES,message_size, server,&dns_state);
             CHECK_ERR(e);
             
             // add reply, log
@@ -200,8 +203,12 @@ static ExitStatus getTimeDifference(struct timespec start_time, size_t* out_val)
 static ExitStatus handleEvents(ProxyServerPtr server) {
     ExitStatus e = STATUS_SUCCESS;
     for(size_t i = 0; i < server->connections.curr_size; i++) {
-        if(server->connections.poll_fds[i].revents == 0) {
+        if(server->connections.poll_fds[i].revents & POLLERR) {
             continue;
+            if(server->connections.connections[i].type == TCP_CLIENT) {
+                tcpReplyQueueDelete(&server->connections.connections[i].reply_queue);
+                e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
+            }
         }
         switch(server->connections.connections[i].type) {
             case UDP_LISTEN:
@@ -213,18 +220,28 @@ static ExitStatus handleEvents(ProxyServerPtr server) {
                 CHECK_ERR(e);
                 break;
             case TCP_CLIENT:
-                e = processTCPMessages(i, server);
-                CHECK_ERR(e);
-                    // check timeout, close connection
-                    // firstly check if no outstanding connections
-                size_t time_difference;
+                // receive
+                if(server->connections.poll_fds[i].revents & POLLIN) {
+                    e = processTCPMessages(i, server);
+                    CHECK_ERR(e);
+                }
+                // check connection
+                size_t time_difference = 0;
                 e = getTimeDifference(server->connections.connections[i].last_event, &time_difference);
+                CHECK_ERR(e);
                 if(time_difference > TCP_CONNECTION_TIMEOUT * 1000) {
+                    tcpReplyQueueDelete(&server->connections.connections[i].reply_queue);
                     e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
                     CHECK_ERR(e);
                     i--;
                     continue;
                 }
+                // send
+                if(server->connections.poll_fds[i].revents & POLLOUT) {
+                    e = sendTCPmessages(i, server);
+                    CHECK_ERR(e);
+                }
+
                 break;
             default:
                 break;
