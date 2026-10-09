@@ -21,14 +21,14 @@ typedef struct {
     uint8_t token_length;
 } DNSFileContext, *DNSFileContextPtr;
 
-inline ExitStatus checkTokenOverFlow(DNSFileContextPtr ctx) {
+static inline ExitStatus checkTokenOverFlow(DNSFileContextPtr ctx) {
     return (ctx->token_length >DNS_MAX_TOKEN_LENGTH ||
         ctx->label_count > DNS_MAX_LABEL_COUNT ||
         ctx->label_length > DNS_MAX_LABEL_LENGTH) ? 
         STATUS_EX_CONFIG : STATUS_SUCCESS;
 }
 
-inline int8_t allowedCharacterCheck(const char c) {
+static inline int8_t allowedCharacterCheck(const char c) {
     return isalnum((unsigned char)c) || c == '.' || c == '_' || c == '-';
 }
 

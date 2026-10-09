@@ -68,7 +68,7 @@ typedef enum {
     DNS_FLAG_PARSED_QUESTION = 0x04,
     DNS_FLAG_PARSED_RRS = 0x08,
     DNS_FLAG_ENTRY_NOT_FOUND = 0x10,
-    DNS_FLAG_NAME_DOESNT_EXIST = 0x20
+    DNS_FLAG_NAME_DOESNT_EXIST = 0x20,
 } DNSFlags, *DNSFlagsPtr;
 typedef struct {
     DNSQuery query;
@@ -95,6 +95,8 @@ ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state);
 
 ExitStatus createDNSAnswer(DNSStatePtr dns_state);
 
-ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, ZoneEntryPtr zone_entry, DNSFieldType type);
+ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, size_t owner_size, ZoneEntryPtr zone_entry, DNSFieldType type);
+
+void dnsStateDtor(DNSStatePtr dns_state);
 
 #endif // SERVER_DNS_H

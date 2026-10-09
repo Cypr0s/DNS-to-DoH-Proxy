@@ -19,6 +19,10 @@
 #define IP_ADDRESS_BYTES 4
 #define IPV6_ADDRESS_BYTES 16
 
+// log
+#define LOG_QNAME_MAX 1100 // 255 wire octets, every byte can become "\DDD"
+#define LOG_LINE_MAX 1280 // timestamp + client + qname + qtype + verdict + rcode
+
 // util
 #define HELP_MESAGE "aaaaaa"
 #define BINARY_NAME "isa-dnsproxy"

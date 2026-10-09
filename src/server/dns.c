@@ -16,7 +16,7 @@ ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state) {
     parseDNSHeader(bytes, &(dns_state->query.header));
     // check 2: QR = 1 → dropped;
     if(dns_state->query.header.flags & QR) {
-        dns_state->state = DNS_STATE_BLOCKED;
+        dns_state->state = DNS_STATE_DROPPED;
         return STATUS_SUCCESS;
     }
     // check 3: OPCODE ≠ QUERY → invalid, NOTIMP;
@@ -235,17 +235,18 @@ ExitStatus createDNSAnswer(DNSStatePtr dns_state) {
     if(dns_state->flags & DNS_FLAG_PARSED_QUESTION) {
         qcount = 1;
         uShortToBytes(qcount, dns_state->reply + dns_state->reply_current_size);
-        dns_state->reply_current_size += 6;
+        dns_state->reply_current_size += 8;
         memcpy(dns_state->reply + dns_state->reply_current_size, dns_state->query.question.question, dns_state->query.question.question_size);
         dns_state->reply_current_size += dns_state->query.question.question_size;
     } else {
         uShortToBytes(qcount, dns_state->reply + dns_state->reply_current_size);
+        dns_state->reply_current_size += 8;
     }
     return STATUS_SUCCESS;
 }
 
 
-ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, ZoneEntryPtr zone_entry, DNSFieldType type) {
+ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, size_t owner_size, ZoneEntryPtr zone_entry, DNSFieldType type) {
     if(type == DNS_ANSWER) {
         uint16_t answer_count = bytesToUShort(dns_state->reply + 6);
         answer_count++;
@@ -256,7 +257,6 @@ ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, ZoneEntryPtr zone_
         uShortToBytes(authority_count, dns_state->reply + 8);
     }
     // owner
-    size_t owner_size = strlen(owner);
     memcpy(dns_state->reply + dns_state->reply_current_size, owner, owner_size);
     dns_state->reply_current_size += owner_size;
 
@@ -329,4 +329,11 @@ ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, ZoneEntryPtr zone_
             break;
     }
     return STATUS_SUCCESS;
+}
+
+
+void dnsStateDtor(DNSStatePtr dns_state) {
+    free(dns_state->reply);
+    dns_state->reply = NULL;
+    stringListDestroyFree(&(dns_state->query.question.labels));
 }

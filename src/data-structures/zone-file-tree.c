@@ -27,7 +27,7 @@ ZoneFileListTreePtr zoneFileTreeCreateNode(char* val) {
     node->children = NULL;
     node->full_domain_name = NULL;
     node->full_domain_name_size = 0;
-
+    node->is_apex = 0;
     return node;
 }
 
@@ -75,6 +75,7 @@ void zoneFileTreeDelete(ZoneFileListTreePtr node) {
 }
 
 uint8_t isInZone(ZoneFileListTreePtr root, StringListPtr labels, ZoneFileListTreePtr* zone, ZoneFileListTreePtr* name) {
+    *zone = NULL; // reset zone, very nice bugs <3
     ZoneFileListTreePtr node = root;
     StringListIterator it;
     stringListIterInit(&it, labels);

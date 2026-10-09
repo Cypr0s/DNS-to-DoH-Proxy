@@ -26,6 +26,8 @@ ExitStatus tcpReplyQueuePush(TCPReplyQueuePtr queue, char* reply, size_t reply_s
 
 void tcpReplyQueueDelete(TCPReplyQueuePtr queue);
 
+void tcpReplyQueueClean(TCPReplyQueuePtr queue);
+
 TCPReplyPtr tcpReplyQueueGet(TCPReplyQueuePtr queue);
 
 #endif

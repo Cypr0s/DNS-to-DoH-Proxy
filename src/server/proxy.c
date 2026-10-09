@@ -1,8 +1,9 @@
 #include "server/proxy.h"
-
+// todo check this file
 static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections);
 static ExitStatus processUDPMessages(int fd, ProxyServerPtr server);
 static ExitStatus sendTCPmessages(size_t connection_index, ProxyServerPtr server);
+static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr server);
 static ExitStatus getTime(struct timespec* time);
 static ExitStatus getTimeDifference(struct timespec start_time, size_t* out_val);
 static ExitStatus handleEvents(ProxyServerPtr server);
@@ -16,19 +17,21 @@ static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections) {
         socklen_t addr_len = sizeof(struct sockaddr_storage);
         new_fd = accept(fd, (struct sockaddr*)&addr, &addr_len);
         if(new_fd < 0)  {
-            if(errno == EWOULDBLOCK || errno == EAGAIN) {
-                break;
-            }
-            // TODO PRINT
-            return STATUS_FAILURE;
+            break;
+        }
+        int32_t val = 1;
+        if(ioctl(new_fd, FIONBIO, (char *)&val) < 0) {
+            close(new_fd);
+            continue;
         }
         struct timespec last_event;
         ExitStatus e = getTime(&last_event);
-        CHECK_ERR(e);
+        CHECK_ERR_AND_FREE(e, close(new_fd););
         Connection c = {.type = TCP_CLIENT, .last_event = last_event, .address = addr, .address_size = addr_len};
-        struct pollfd poll_fd = {.fd = new_fd, .events = POLLIN, .revents = 0}; 
+        tcpReplyQueueInit(&c.reply_queue);
+        struct pollfd poll_fd = {.fd = new_fd, .events = POLLIN, .revents = 0};
         e = connectionVectorInsert(connections, poll_fd, c);
-        CHECK_ERR(e);
+        CHECK_ERR_AND_FREE(e, close(new_fd););
     }
     return STATUS_SUCCESS;
 }
@@ -42,38 +45,27 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
         address_size = sizeof(struct sockaddr_storage);
         ssize_t msg_size = recvfrom(fd, bytes, DNS_QUERY_MAX_SIZE, 0, (struct sockaddr *)&address, &address_size);
         if(msg_size < 0) {
-            if(errno == EAGAIN  || errno == EWOULDBLOCK) {
-                break;
-            }
-            // actual error
-            return STATUS_FAILURE;
+            break;
         }
         DNSState dns_state = {0};
         ExitStatus e = handleDNSQuery((char*)bytes, msg_size, server, &dns_state);
-        CHECK_ERR(e);
+        CHECK_ERR_AND_FREE(e, dnsStateDtor(&dns_state););
         int8_t rcode = -1;
-        // response
         if(dns_state.reply != NULL) {
-            msg_size = sendto(fd, dns_state.reply, dns_state.reply_max_size, 0, (struct sockaddr*) &address, address_size);
+            msg_size = sendto(fd, dns_state.reply, dns_state.reply_current_size, 0, (struct sockaddr*) &address, address_size);
             if(msg_size < 0) {
-                return STATUS_FAILURE;
+                // TODO ERROR
+                break;
             }
             uint16_t flags = bytesToUShort(dns_state.reply + 2);
             rcode = flags & 0x000f;
-            free(dns_state.reply);
         }
-        logDNSMessage(
-            &address, 
-            address_size, 
-            dns_state.query.question.question, 
-            dns_state.query.question.question_size,
-            dns_state.query.question.qtype,
-            dns_state.state, 
-            rcode
-        );
+        logDNSMessage(&address, &dns_state, rcode);
+        dnsStateDtor(&dns_state);
     }
     return STATUS_SUCCESS;
 }
+
 
 static ExitStatus sendTCPmessages(size_t connection_index, ProxyServerPtr server) {
     ConnectionPtr con = &server->connections.connections[connection_index];
@@ -91,8 +83,10 @@ static ExitStatus sendTCPmessages(size_t connection_index, ProxyServerPtr server
             if(errno == EAGAIN || errno == EWOULDBLOCK) {
                 return STATUS_SUCCESS;
             }
-
-            return STATUS_FAILURE;
+            // close connection
+            ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+            CHECK_ERR(e);
+            return STATUS_CONNECTION_CLOSED;
         }
 
         ExitStatus e = getTime(&con->last_event);
@@ -118,11 +112,17 @@ static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr ser
             if(errno == EAGAIN || errno == EWOULDBLOCK) {
                 break;
             }
-            return STATUS_FAILURE;
+            
+            ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+            CHECK_ERR(e);
+            return STATUS_CONNECTION_CLOSED;
         }
 
         if(received == 0) {
-            return connectionVectorDelete(&server->connections, poll_id->fd);
+            // client closed the connection
+            ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+            CHECK_ERR(e);
+            return STATUS_CONNECTION_CLOSED;
         }
 
         con->currently_received += (size_t)received;
@@ -130,7 +130,9 @@ static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr ser
         while(con->currently_received >= TCP_MESSAGE_SIZE_BYTES) {
             uint16_t message_size = bytesToUShort(con->message_buffer);
             if(message_size == 0) {
-                return connectionVectorDelete(&server->connections, poll_id->fd);
+                ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+                CHECK_ERR(e);
+                return STATUS_CONNECTION_CLOSED;
             }
 
             if(con->currently_received < ((size_t)(message_size) + TCP_MESSAGE_SIZE_BYTES)) {
@@ -142,8 +144,8 @@ static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr ser
 
             DNSState dns_state = {0};
             e = handleDNSQuery((char*)con->message_buffer + TCP_MESSAGE_SIZE_BYTES,message_size, server,&dns_state);
-            CHECK_ERR(e);
-            
+            CHECK_ERR_AND_FREE(e, dnsStateDtor(&dns_state););
+
             // add reply, log
             int8_t rcode = -1;
             if(dns_state.reply != NULL) {
@@ -151,25 +153,18 @@ static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr ser
                 rcode = flags & 0x000f;
 
                 e = tcpReplyQueuePush(&con->reply_queue, dns_state.reply, dns_state.reply_current_size);
-                CHECK_ERR(e);
-
-                free(dns_state.reply);
+                CHECK_ERR_AND_FREE(e, dnsStateDtor(&dns_state););
 
                 poll_id->events |= POLLOUT;
             }
 
-            logDNSMessage(
-                &con->address, 
-                con->address_size,
-                dns_state.query.question.question,
-                dns_state.query.question.question_size,
-                dns_state.query.question.qtype,
-                dns_state.state,
-                rcode
-            );
+            logDNSMessage(&con->address, &dns_state, rcode);
+            dnsStateDtor(&dns_state);
 
             if(dns_state.state == DNS_STATE_DROPPED) {
-                return connectionVectorDelete(&server->connections, poll_id->fd);
+                ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+                CHECK_ERR(e);
+                return STATUS_CONNECTION_CLOSED;
             }
 
             con->currently_received -= message_size + TCP_MESSAGE_SIZE_BYTES;
@@ -201,15 +196,9 @@ static ExitStatus getTimeDifference(struct timespec start_time, size_t* out_val)
 }
 
 static ExitStatus handleEvents(ProxyServerPtr server) {
-    ExitStatus e = STATUS_SUCCESS;
-    for(size_t i = 0; i < server->connections.curr_size; i++) {
-        if(server->connections.poll_fds[i].revents & POLLERR) {
-            continue;
-            if(server->connections.connections[i].type == TCP_CLIENT) {
-                tcpReplyQueueDelete(&server->connections.connections[i].reply_queue);
-                e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
-            }
-        }
+    size_t i = 0;
+    while(i < server->connections.curr_size) {
+        ExitStatus e = STATUS_SUCCESS;
         switch(server->connections.connections[i].type) {
             case UDP_LISTEN:
                 e = processUDPMessages(server->connections.poll_fds[i].fd, server);
@@ -219,35 +208,41 @@ static ExitStatus handleEvents(ProxyServerPtr server) {
                 e = acceptConnections(server->connections.poll_fds[i].fd, &server->connections);
                 CHECK_ERR(e);
                 break;
-            case TCP_CLIENT:
-                // receive
-                if(server->connections.poll_fds[i].revents & POLLIN) {
+            case TCP_CLIENT: {
+                short revents = server->connections.poll_fds[i].revents;
+
+                if(revents & (POLLERR | POLLNVAL)) {
+                    e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
+                    CHECK_ERR(e);
+                }
+
+                if(revents & (POLLIN | POLLHUP)) {
                     e = processTCPMessages(i, server);
                     CHECK_ERR(e);
                 }
-                // check connection
+
+                // idle timeout
                 size_t time_difference = 0;
                 e = getTimeDifference(server->connections.connections[i].last_event, &time_difference);
                 CHECK_ERR(e);
                 if(time_difference > TCP_CONNECTION_TIMEOUT * 1000) {
-                    tcpReplyQueueDelete(&server->connections.connections[i].reply_queue);
                     e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
-                    CHECK_ERR(e);
-                    i--;
-                    continue;
-                }
-                // send
-                if(server->connections.poll_fds[i].revents & POLLOUT) {
-                    e = sendTCPmessages(i, server);
                     CHECK_ERR(e);
                 }
 
+                // send
+                if(revents & POLLOUT) {
+                    e = sendTCPmessages(i, server);
+                    CHECK_ERR(e);
+                }
                 break;
+            }
             default:
                 break;
         }
+        i++;
     }
-    return e;
+    return STATUS_SUCCESS;
 }
 
 static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPtr server, DNSStatePtr dns_state) {
@@ -283,7 +278,7 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
                     response_header_flags |= RCODE_NXDOMAIN;
                     // add SOA
                     entry = getEntry(&zone->list, ENTRY_SOA); // NULL cannot happen here we found a zone(it must have one SOA)
-                    ExitStatus e = addAnswerField(dns_state, zone->full_domain_name, entry, DNS_AUTHORITY);
+                    ExitStatus e = addAnswerField(dns_state, zone->full_domain_name, zone->full_domain_name_size, entry, DNS_AUTHORITY);
                     CHECK_ERR(e);
                     break;
                 }
@@ -293,7 +288,7 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
                     ZoneListIterator it = {0};
                     zoneListIterInit(&it, &name->list);
                     while((entry = zoneListIterNext(&it)) != NULL) {
-                        ExitStatus e = addAnswerField(dns_state,name->full_domain_name, entry, DNS_ANSWER);
+                        ExitStatus e = addAnswerField(dns_state,name->full_domain_name, name->full_domain_name_size, entry, DNS_ANSWER);
                         CHECK_ERR(e);
                     }
                     break;
@@ -306,7 +301,7 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
                     zoneListIterInit(&it, &name->list);
                     while((entry = zoneListIterNext(&it)) != NULL) {
                         if(entry->entry_type == dns_state->query.question.qtype) {
-                            ExitStatus e = addAnswerField(dns_state, name->full_domain_name, entry, DNS_ANSWER);
+                            ExitStatus e = addAnswerField(dns_state, name->full_domain_name, name->full_domain_name_size, entry, DNS_ANSWER);
                             CHECK_ERR(e);
                         }
                     }
@@ -340,7 +335,7 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
                             break;
                         }
 
-                        ExitStatus e = addAnswerField(dns_state, current_name->full_domain_name, cname, DNS_ANSWER);
+                        ExitStatus e = addAnswerField(dns_state, current_name->full_domain_name, current_name->full_domain_name_size, cname, DNS_ANSWER);
                         CHECK_ERR(e);
 
                         return_flag = isInZone(server->zone_file_root, &cname->entry.cname_entry.list, &current_zone, &current_name);
@@ -351,7 +346,7 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
                         if(current_name == NULL) {
                             response_header_flags |= RCODE_NXDOMAIN;
                             ZoneEntryPtr soa = getEntry(&current_zone->list,ENTRY_SOA);
-                            e = addAnswerField(dns_state, current_zone->full_domain_name, soa, DNS_AUTHORITY);
+                            e = addAnswerField(dns_state, current_zone->full_domain_name, current_zone->full_domain_name_size, soa, DNS_AUTHORITY);
                             CHECK_ERR(e);
                             break;
                         }
@@ -363,7 +358,7 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
                             zoneListIterInit(&it, &current_name->list);
                             while((entry = zoneListIterNext(&it)) != NULL) {
                                 if(entry->entry_type == dns_state->query.question.qtype) {
-                                    e = addAnswerField(dns_state, current_name->full_domain_name, entry,DNS_ANSWER);
+                                    e = addAnswerField(dns_state, current_name->full_domain_name, current_name->full_domain_name_size, entry,DNS_ANSWER);
                                     CHECK_ERR(e);
                                 }
                             }
@@ -386,7 +381,7 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
             dns_state->reply = NULL;
             return STATUS_SUCCESS;
         }
-        default: 
+        default:
             return STATUS_FAILURE;
     }
     uShortToBytes(response_header_flags, dns_state->reply + 2);    
@@ -402,7 +397,7 @@ ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {
     }
 
     ExitStatus e = parseBlockList(&(parsed_args->block_lists), server->block_list_root);
-    CHECK_ERR_AND_FREE(e, blockListTreeDelete(server->block_list_root););
+    CHECK_ERR(e);
 
 
     server->zone_file_root = zoneFileTreeCreateNode(NULL);

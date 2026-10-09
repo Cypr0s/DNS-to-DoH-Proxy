@@ -27,15 +27,16 @@ typedef enum {
     STATUS_EX_UNAVAIABLE = 69,
     STATUS_EX_CONFIG = 78,
     STATUS_MALLOC_FAILURE = 99,
+    STATUS_CONNECTION_CLOSED = -1
 } ExitStatus;
 
 
 void printErrorMsg(char* format, ...);
 
-#define PRINT_FILELIST_PARSE_ERROR(file, line, msg) (printErrorMsg("%s:%zu:%s", file, line, msg))
+#define PRINT_FILELIST_PARSE_ERROR(file, line, msg) (printErrorMsg("%s:%zu: %s", file, line, msg))
 #define PRINT_ARGUMENT_PARSE_ERROR(format, ...) (printErrorMsg(format, __VA_ARGS__))
-#define PRINT_LISTENING_SOCKET(address, port) (printErrorMsg("listening on on %s:%u", address, port))
-#define PRINT_LISTENING_SOCKET_V6(address, port) (printErrorMsg("listening on on [%s]:%u", address, port))
+#define PRINT_LISTENING_SOCKET(address, port) (printErrorMsg("listening on %s:%u", address, port))
+#define PRINT_LISTENING_SOCKET_V6(address, port) (printErrorMsg("listening on [%s]:%u", address, port))
 #define PRINT_ERROR(...) (printErrorMsg(__VA_ARGS__))
 
 #endif // ERROR_H

@@ -235,7 +235,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Missing previous owner");
             return STATUS_EX_CONFIG;
         }
-        // no need to set owner it will not be replaced
+        owner = ctx->current_owner;
     } else {
         if(!strcmp(token, "@")) {
             if(ctx->origin == NULL) {
@@ -569,22 +569,30 @@ static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreeP
         ZoneFileListTreePtr child = zoneFileTreeFindNode(tmp, val);
 
         if(child == NULL) {
-            child = zoneFileTreeCreateNode(val);
+            char* label = strdup(val);
+            if(label == NULL) {
+                PRINT_ERROR("Memory allocation failure");
+                stringListDestroyFree(&list);
+                return STATUS_MALLOC_FAILURE;
+            }
+            child = zoneFileTreeCreateNode(label);
             if(child == NULL) {
+                free(label);
                 PRINT_ERROR("Memory allocation failure");
                 stringListDestroyFree(&list);
                 return STATUS_MALLOC_FAILURE;
             }
             e = zoneFileTreeAddChild(tmp, child);
-            CHECK_ERR_AND_FREE(e, free(child);PRINT_ERROR("Memory allocation failure");stringListDestroyFree(&list););
-        } else {
-            free(val);
+            CHECK_ERR_AND_FREE(e, zoneFileTreeDelete(child);PRINT_ERROR("Memory allocation failure");stringListDestroyFree(&list););
         }
 
         tmp = child;
     }
     stringListDestroyFree(&list);
-    tmp->is_apex = 1;
+
+    if(entry->entry_type == ENTRY_SOA) {
+        tmp->is_apex = 1;
+    }
 
     if(tmp->full_domain_name == NULL) {
         e = domainToBytes(owner, &tmp->full_domain_name, &tmp->full_domain_name_size);

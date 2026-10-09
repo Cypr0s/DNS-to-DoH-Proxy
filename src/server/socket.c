@@ -112,7 +112,7 @@ ExitStatus prepareSockets(ParsedArgsPtr parsed_arguments, ConnectionVectorPtr co
     e = bindSocket(&udp_fd, parsed_arguments->address, parsed_arguments->port, n, TRANSPORT_UDP);
     CHECK_ERR(e);
     struct pollfd fd = {.fd = udp_fd, .events = POLLIN, .revents = 0};
-    Connection c = {0};
+    Connection c = {.type = UDP_LISTEN};
     e = connectionVectorInsert(connections, fd, c);
     CHECK_ERR(e);
 
@@ -122,7 +122,7 @@ ExitStatus prepareSockets(ParsedArgsPtr parsed_arguments, ConnectionVectorPtr co
     e = bindSocket(&tcp_fd, parsed_arguments->address, parsed_arguments->port, n, TRANSPORT_TCP);
     CHECK_ERR(e);
     fd = (struct pollfd){.fd = tcp_fd, .events = POLLIN, .revents = 0};
-    c = (Connection){0};
+    c = (Connection){.type = TCP_LISTEN}; // {0} would make it UDP_LISTEN (first enum value)
     e = connectionVectorInsert(connections, fd, c);
     CHECK_ERR(e);
 
