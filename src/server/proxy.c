@@ -50,6 +50,22 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
         DNSState dns_state = {0};
         ExitStatus e = handleDNSQuery((char*)bytes, msg_size, server, &dns_state);
         CHECK_ERR_AND_FREE(e, dnsStateDtor(&dns_state););
+
+        if(dns_state.state == DNS_STATE_FORWARDED) {
+            ForwardRequestPtr req = forwardRequestCreate((char*)bytes, (size_t)msg_size, FORWARD_IS_UDP, fd, address, address_size, dns_state);
+            if(req == NULL) {
+                PRINT_ERROR("Memory allocation failure");
+                dnsStateDtor(&dns_state);
+                return STATUS_MALLOC_FAILURE;
+            }
+ 
+            if(forwardDNSQuery(server, req) == STATUS_FORWARDED_QUERY_SENT) {
+                continue;
+            }
+            req->dns_state = (DNSState){0}; // will be used for sending
+            forwardRequestDestroy(req);
+        }
+
         int8_t rcode = -1;
         if(dns_state.reply != NULL) {
             msg_size = sendto(fd, dns_state.reply, dns_state.reply_current_size, 0, (struct sockaddr*) &address, address_size);
@@ -101,6 +117,7 @@ static ExitStatus sendTCPmessages(size_t connection_index, ProxyServerPtr server
         }
     }
 }
+
 
 static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr server) {
     ConnectionPtr con = &server->connections.connections[connection_index];
@@ -194,6 +211,7 @@ static ExitStatus getTimeDifference(struct timespec start_time, size_t* out_val)
     *out_val = (size_t)((current_time.tv_sec - start_time.tv_sec) * 1000L + (current_time.tv_nsec - start_time.tv_nsec) / 1000000L);
     return STATUS_SUCCESS;
 }
+
 
 static ExitStatus handleEvents(ProxyServerPtr server) {
     size_t i = 0;
@@ -375,11 +393,10 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
                 response_header_flags |= RCODE_NXDOMAIN;
                 break;
             }
-            // forward 
-            free(dns_state->reply);
+            // forward
             dns_state->state = DNS_STATE_FORWARDED;
-            dns_state->reply = NULL;
-            return STATUS_SUCCESS;
+            response_header_flags |= RCODE_SERVFAIL; // prepared reply for servfail
+            break;
         }
         default:
             return STATUS_FAILURE;
@@ -389,56 +406,23 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
 }
 
 
-ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {
-    server->block_list_root = blockListTreeCreateNode(NULL, 0);
-    if(server->block_list_root == NULL) {
-        PRINT_ERROR("Memory allocation failure");
-        return STATUS_MALLOC_FAILURE;
-    }
-
-    ExitStatus e = parseBlockList(&(parsed_args->block_lists), server->block_list_root);
-    CHECK_ERR(e);
-
-
-    server->zone_file_root = zoneFileTreeCreateNode(NULL);
-    if(server->zone_file_root == NULL) {
-        PRINT_ERROR("Memory allocation failure");
-        return STATUS_MALLOC_FAILURE;
-    }
-
-    e = parseZoneList(&(parsed_args->zone_files), server->zone_file_root);
-    CHECK_ERR(e);
-
-    e = connectionVectorInit(&server->connections);
-    CHECK_ERR(e);
-
-    e = prepareSockets(parsed_args, &server->connections);
-    CHECK_ERR(e);
-
-    return STATUS_SUCCESS;
-}
-
-
 ExitStatus proxyServerStart(ProxyServerPtr server) {
     while(1) {
-        int events = poll(server->connections.poll_fds, server->connections.curr_size, POLL_TIMEOUT);
-        if(events > 0) {
-            ExitStatus e = handleEvents(server);
-            CHECK_ERR(e);
-        } else if(events == 0) {
-            continue;
-        } else {
+        if(poll(server->connections.poll_fds, server->connections.curr_size, POLL_TIMEOUT) < 0) {
             return STATUS_FAILURE;
         }
+
+        ExitStatus e = handleEvents(server);
+        CHECK_ERR(e);
+
+        int running = 0;
+        CURLMcode mc = curl_multi_perform(server->multi_handle, &running);
+        if(mc != CURLM_OK) {
+            PRINT_ERROR("curl_multi_perform: %s", curl_multi_strerror(mc));
+            return STATUS_FAILURE;
+        }
+
+        e = handleFinishedTransfers(server);
+        CHECK_ERR(e);
     }
-    return STATUS_SUCCESS;
-}
-
-
-void proxyServerDtor(ProxyServerPtr server) {
-    zoneFileTreeDelete(server->zone_file_root);
-    server->zone_file_root = NULL;
-    blockListTreeDelete(server->block_list_root);
-    server->block_list_root = NULL;
-    connectionVectorClean(&server->connections);
 }

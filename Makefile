@@ -2,7 +2,7 @@
 
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c17 -pedantic -O2 -Isrc -D_POSIX_C_SOURCE=200809L 
-LDFLAGS = 
+LDFLAGS = -lcurl
 
 SRC := $(shell find src -name '*.c')
 OBJ = $(SRC:.c=.o)

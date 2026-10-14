@@ -44,6 +44,9 @@ static char* getRcode(int8_t rcode_in) {
         case RCODE_REFUSED:
             return "REFUSED";
 
+        case RCODE_YXDOMAIN:
+            return "YXDOMAIN";
+
         case -1:
             return "-";
 
@@ -81,8 +84,59 @@ static char* getQtype(uint16_t qtype) {
     }
 }
 
+static void formatClient(struct sockaddr_storage* address, char* out, size_t out_size) {
+    char ip[INET6_ADDRSTRLEN]; // 46, also can hold 16 of IPV4
+    // ipv4
+    if(address->ss_family == AF_INET) {
+        struct sockaddr_in* ipv4 = (struct sockaddr_in*)address;
+        inet_ntop(AF_INET, &ipv4->sin_addr, ip, sizeof(ip));
+        snprintf(out, out_size, "%s:%u", ip, (unsigned)ntohs(ipv4->sin_port));
+        //ipv6
+    } else if(address->ss_family == AF_INET6) {
+        struct sockaddr_in6* ipv6 = (struct sockaddr_in6*)address;
+        // ipv4 mapped
+        if(IN6_IS_ADDR_V4MAPPED(&ipv6->sin6_addr)) {
+            inet_ntop(AF_INET, &ipv6->sin6_addr.s6_addr[12], ip, sizeof(ip));
+            snprintf(out, out_size, "%s:%u", ip, (unsigned)ntohs(ipv6->sin6_port));
+        // ipv6
+        } else {
+            inet_ntop(AF_INET6, &ipv6->sin6_addr, ip, sizeof(ip));
+            snprintf(out, out_size, "[%s]:%u", ip, (unsigned)ntohs(ipv6->sin6_port));
+        }
+    }
+}
 
-void logDNSMessage(struct sockaddr_storage* address_in, uint32_t address_in_size, char* qname_in, size_t qname_in_size, uint8_t qtype_in, uint8_t state_in, int8_t rcode_in) {
+
+static void formatQname(char* str_in, char* str_out, size_t out_size) {
+    size_t in_pos = 0;
+    size_t out_pos = 0;
+    while(str_in[in_pos] != '\0') {
+        uint8_t label_length = (uint8_t)str_in[in_pos++];
+        for(uint8_t i = 0; i < label_length; i++) {
+            unsigned char c = (unsigned char)str_in[in_pos++];
+            if(c >= 'A' && c <= 'Z') {
+                str_out[out_pos++] = (char)(c - 'A' + 'a');
+            } else if( c == '.' || c == ';' || c == '(' || c == ')' || c == '@' || c == '$' || c == '\"' || c == '\\') {
+                str_out[out_pos++] = '\\';
+                str_out[out_pos++] = c; 
+            } else if(c < 0x21 || c > 0x7E) {
+                out_pos += (size_t)snprintf(str_out + out_pos, out_size - out_pos, "\\%03u", (unsigned)c);
+            } else {
+                str_out[out_pos++] = (char)c;
+            }
+        }
+        str_out[out_pos++] = '.';
+    }
+
+    if(out_pos == '\0') {
+        str_out[out_pos++] = '.'; // root
+    }
+    str_out[out_pos] = '\0';
+}
+
+
+void logDNSMessage(struct sockaddr_storage* address_in, DNSStatePtr dns_state, int8_t rcode_in) {
+    // time
     // https://stackoverflow.com/questions/48771851/im-trying-to-build-an-rfc3339-timestamp-in-c-how-do-i-get-the-timezone-offset
     time_t now;
     time(&now);
@@ -95,29 +149,36 @@ void logDNSMessage(struct sockaddr_storage* address_in, uint32_t address_in_size
         sprintf(time + len - 2, ":%s", minute);
     }
 
-    (void)address_in;
-    (void)address_in_size;
-    (void)qname_in;
-    (void)qname_in_size;
+    // clieant addr
+    char client[INET6_ADDRSTRLEN + 10] = "\0"; // "[" + address + "]:" + port
+    formatClient(address_in, client, sizeof(client));
 
-    char* verdict = getVerdict(state_in);
+    // qname and qtype
+    char qname[LONGEST_POSSIBLE_QNAME] = "-";
+    char qtype[16] = "-";
+    if(dns_state->flags & DNS_FLAG_PARSED_QUESTION) {
+        formatQname(dns_state->query.question.question, qname, sizeof(qname));
 
-    char qtype[10];
-    char* value = getQtype(qtype_in);
-    if(value != NULL) {
-        strcpy(qtype, value);
-    } else {
-        snprintf(qtype, sizeof(qtype), "TYPE%d", qtype_in);
+        char* type = getQtype(dns_state->query.question.qtype);
+        if(type != NULL) {
+            strcpy(qtype, type);
+        } else {
+            snprintf(qtype, sizeof(qtype), "TYPE%u", (unsigned)dns_state->query.question.qtype);
+        }
     }
 
+    // verdict
+    char* verdict = getVerdict(dns_state->state);
 
+    // Rcode
     char rcode[10];
-    value = getRcode(rcode_in);
+    char* value = getRcode(rcode_in);
     if(value != NULL) {
         strcpy(rcode, value);
     } else {
         snprintf(rcode, sizeof(rcode), "RCODE%d", (uint8_t)rcode_in);
     }
 
-    printf("%s %s %s %s %s %s\n", time, "address", "qname", qtype, verdict, rcode);
+    printf("%s %s %s %s %s %s\n", time, client, qname, qtype, verdict, rcode);
+    fflush(stdout);
 }

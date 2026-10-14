@@ -17,7 +17,6 @@ static inline ArgPtr getArgument(char* argv);
 
 
 void parsedArgsCtor(ParsedArgsPtr parsed_args) {
-    memset(parsed_args, 0, sizeof(ParsedArgs));
     parsed_args->port = ARGUMENT_DEFAULT_PORT;
     parsed_args->timeout_time = ARGUMENT_DEFAULT_TIMEOUT;
     stringListInit(&parsed_args->block_lists);

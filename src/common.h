@@ -18,10 +18,10 @@
 #define DNS_QUERY_MAX_SIZE 65536
 #define IP_ADDRESS_BYTES 4
 #define IPV6_ADDRESS_BYTES 16
+#define MAX_FORWARDED_REQUESTS 128
 
-// log
-#define LOG_QNAME_MAX 1100 // 255 wire octets, every byte can become "\DDD"
-#define LOG_LINE_MAX 1280 // timestamp + client + qname + qtype + verdict + rcode
+// printing
+#define LONGEST_POSSIBLE_QNAME 1005 // ((63 * 3) + 61) * 4 + 4 * ('.') == 1005
 
 // util
 #define HELP_MESAGE "aaaaaa"

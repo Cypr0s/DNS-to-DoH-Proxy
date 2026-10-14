@@ -27,6 +27,7 @@ typedef enum {
     RCODE_NXDOMAIN = 3,
     RCODE_NOTIMP = 4,
     RCODE_REFUSED = 5,
+    RCODE_YXDOMAIN = 6,
 } RcodeEnum;
 
 typedef struct __attribute__((packed)) {

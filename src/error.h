@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdarg.h> // va_list, va_start, va_end
 #include <stdio.h> // vprintf, fprintf, stderr
+#include <curl/curl.h>
 
 
 #define CHECK_ERR(status) do {      \
@@ -20,6 +21,12 @@
     }                                           \
 } while(0);
 
+#define CHECK_CURL(status) do {     \
+    if(status != CURLE_OK) {        \
+        return status;              \
+    }                               \
+} while(0);
+
 typedef enum {
     STATUS_SUCCESS = EXIT_SUCCESS,
     STATUS_FAILURE = EXIT_FAILURE,
@@ -27,7 +34,8 @@ typedef enum {
     STATUS_EX_UNAVAIABLE = 69,
     STATUS_EX_CONFIG = 78,
     STATUS_MALLOC_FAILURE = 99,
-    STATUS_CONNECTION_CLOSED = -1
+    STATUS_CONNECTION_CLOSED = -1,
+    STATUS_FORWARDED_QUERY_SENT = -2
 } ExitStatus;
 
 
