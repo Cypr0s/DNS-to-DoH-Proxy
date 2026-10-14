@@ -11,6 +11,7 @@ typedef struct TCPReply {
     char* data;
     size_t size;
     size_t sent;
+    char log[LOG_LINE_MAX];
     struct TCPReply *next;
 } TCPReply, *TCPReplyPtr;
 
@@ -22,7 +23,7 @@ typedef struct {
 
 void tcpReplyQueueInit(TCPReplyQueuePtr queue);
 
-ExitStatus tcpReplyQueuePush(TCPReplyQueuePtr queue, char* reply, size_t reply_size);
+ExitStatus tcpReplyQueuePush(TCPReplyQueuePtr queue, char* reply, size_t reply_size, char* log);
 
 void tcpReplyQueueDelete(TCPReplyQueuePtr queue);
 

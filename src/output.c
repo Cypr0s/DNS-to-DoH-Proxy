@@ -128,14 +128,14 @@ static void formatQname(char* str_in, char* str_out, size_t out_size) {
         str_out[out_pos++] = '.';
     }
 
-    if(out_pos == '\0') {
+    if(out_pos == 0) {
         str_out[out_pos++] = '.'; // root
     }
     str_out[out_pos] = '\0';
 }
 
 
-void logDNSMessage(struct sockaddr_storage* address_in, DNSStatePtr dns_state, int8_t rcode_in) {
+void createLogLine(char* out, size_t out_size, struct sockaddr_storage* address_in, DNSStatePtr dns_state, int8_t rcode_in) {
     // time
     // https://stackoverflow.com/questions/48771851/im-trying-to-build-an-rfc3339-timestamp-in-c-how-do-i-get-the-timezone-offset
     time_t now;
@@ -179,6 +179,11 @@ void logDNSMessage(struct sockaddr_storage* address_in, DNSStatePtr dns_state, i
         snprintf(rcode, sizeof(rcode), "RCODE%d", (uint8_t)rcode_in);
     }
 
-    printf("%s %s %s %s %s %s\n", time, client, qname, qtype, verdict, rcode);
+    snprintf(out, out_size, "%s %s %s %s %s %s\n", time, client, qname, qtype, verdict, rcode);
+}
+
+
+void printLogLine(char* line) {
+    fprintf(stdout, "%s", line);
     fflush(stdout);
 }

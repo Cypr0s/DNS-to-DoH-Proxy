@@ -5,7 +5,7 @@ void tcpReplyQueueInit(TCPReplyQueuePtr queue) {
     queue->tail = NULL;
 }
 
-ExitStatus tcpReplyQueuePush(TCPReplyQueuePtr queue, char* reply, size_t reply_size) {
+ExitStatus tcpReplyQueuePush(TCPReplyQueuePtr queue, char* reply, size_t reply_size, char* log) {
     TCPReply *new_reply = malloc(sizeof(TCPReply));
     if(new_reply == NULL) {
         return STATUS_MALLOC_FAILURE;
@@ -23,6 +23,8 @@ ExitStatus tcpReplyQueuePush(TCPReplyQueuePtr queue, char* reply, size_t reply_s
 
     new_reply->size = reply_size + TCP_MESSAGE_SIZE_BYTES;
     new_reply->sent = 0;
+    strncpy(new_reply->log, log, sizeof(new_reply->log) - 1);
+    new_reply->log[sizeof(new_reply->log) - 1] = '\0';
     new_reply->next = NULL;
 
     if(queue->tail == NULL) {

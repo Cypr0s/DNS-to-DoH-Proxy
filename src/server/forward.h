@@ -2,9 +2,12 @@
 #define FORWARD_H
 
 #include <stdint.h>
+#include <sys/socket.h>
 #include <curl/curl.h>
-#include "proxy_server.h"
+#include "server/dns.h"
+#include "output.h"
 
+struct proxy_server; // defined in proxy_server.h
 
 typedef enum {
     FORWARD_IS_TCP = 0x01,
@@ -30,7 +33,7 @@ typedef struct {
 typedef struct {
     ForwardRequestPtr forwarded_requests[MAX_FORWARDED_REQUESTS];
     size_t current_size;
-} ForwardRequestArray;
+} ForwardRequestArray, *ForwardRequestArrayPtr;
 
 
 ForwardRequestPtr forwardRequestCreate(const char* query, 
@@ -39,10 +42,16 @@ ForwardRequestPtr forwardRequestCreate(const char* query,
     int socket_fd,
     struct sockaddr_storage client,
     socklen_t client_size,
-    DNSState dns_state);
+    DNSState dns_state
+);
 
 
-void forwardRequestDestroy(ForwardRequestPtr req);
+void forwardRequestDelete(struct proxy_server* server, size_t index);
 
-ExitStatus forwardDNSQuery(ProxyServerPtr server, ForwardRequestPtr req);
+ExitStatus forwardDNSQuery(struct proxy_server* server, ForwardRequestPtr req);
+
+ExitStatus receiveForwardedQueries(struct proxy_server* server);
+
+void forwardCleanup(struct proxy_server* server);
+
 #endif // FORWARD_H

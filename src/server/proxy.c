@@ -51,7 +51,7 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
         ExitStatus e = handleDNSQuery((char*)bytes, msg_size, server, &dns_state);
         CHECK_ERR_AND_FREE(e, dnsStateDtor(&dns_state););
 
-        if(dns_state.state == DNS_STATE_FORWARDED) {
+        if(dns_state.state == DNS_STATE_FORWARDED && server->forwarded_requests.current_size < MAX_FORWARDED_REQUESTS) {
             ForwardRequestPtr req = forwardRequestCreate((char*)bytes, (size_t)msg_size, FORWARD_IS_UDP, fd, address, address_size, dns_state);
             if(req == NULL) {
                 PRINT_ERROR("Memory allocation failure");
@@ -62,8 +62,6 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
             if(forwardDNSQuery(server, req) == STATUS_FORWARDED_QUERY_SENT) {
                 continue;
             }
-            req->dns_state = (DNSState){0}; // will be used for sending
-            forwardRequestDestroy(req);
         }
 
         int8_t rcode = -1;
@@ -73,10 +71,11 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
                 // TODO ERROR
                 break;
             }
-            uint16_t flags = bytesToUShort(dns_state.reply + 2);
-            rcode = flags & 0x000f;
+            rcode = GET_RCODE(bytesToUShort(dns_state.reply + 2));
         }
-        logDNSMessage(&address, &dns_state, rcode);
+        char log[LOG_LINE_MAX];
+        createLogLine(log, LOG_LINE_MAX, &address, &dns_state, rcode);
+        printLogLine(log);
         dnsStateDtor(&dns_state);
     }
     return STATUS_SUCCESS;
@@ -111,6 +110,7 @@ static ExitStatus sendTCPmessages(size_t connection_index, ProxyServerPtr server
         reply->sent += (size_t)sent;
 
         if(reply->sent == reply->size) {
+            printLogLine(reply->log);
             tcpReplyQueueDelete(&con->reply_queue);
         } else {
             return STATUS_SUCCESS;
@@ -163,25 +163,42 @@ static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr ser
             e = handleDNSQuery((char*)con->message_buffer + TCP_MESSAGE_SIZE_BYTES,message_size, server,&dns_state);
             CHECK_ERR_AND_FREE(e, dnsStateDtor(&dns_state););
 
-            // add reply, log
-            int8_t rcode = -1;
-            if(dns_state.reply != NULL) {
-                uint16_t flags = bytesToUShort(dns_state.reply + 2);
-                rcode = flags & 0x000f;
+            if(dns_state.state == DNS_STATE_FORWARDED && server->forwarded_requests.current_size < MAX_FORWARDED_REQUESTS) {
+                ForwardRequestPtr req = forwardRequestCreate(con->message_buffer + TCP_MESSAGE_SIZE_BYTES, message_size, FORWARD_IS_TCP, poll_id->fd, con->address, (socklen_t)con->address_size, dns_state);
+                if(req == NULL) {
+                    PRINT_ERROR("Memory allocation failure");
+                    dnsStateDtor(&dns_state);
+                    return STATUS_MALLOC_FAILURE;
+                }
 
-                e = tcpReplyQueuePush(&con->reply_queue, dns_state.reply, dns_state.reply_current_size);
+                if(forwardDNSQuery(server, req) == STATUS_FORWARDED_QUERY_SENT) {
+                    con->currently_received -= message_size + TCP_MESSAGE_SIZE_BYTES;
+                    memmove(con->message_buffer, con->message_buffer + message_size + TCP_MESSAGE_SIZE_BYTES, con->currently_received);
+                    continue;
+                }
+            }
+
+            int8_t rcode = -1;
+            char log[LOG_LINE_MAX];
+            if(dns_state.reply != NULL) {
+                rcode = GET_RCODE(bytesToUShort(dns_state.reply + 2));
+                createLogLine(log, LOG_LINE_MAX, &con->address, &dns_state, rcode);
+
+                e = tcpReplyQueuePush(&con->reply_queue, dns_state.reply, dns_state.reply_current_size, log);
                 CHECK_ERR_AND_FREE(e, dnsStateDtor(&dns_state););
 
                 poll_id->events |= POLLOUT;
-            }
-
-            logDNSMessage(&con->address, &dns_state, rcode);
-            dnsStateDtor(&dns_state);
-
-            if(dns_state.state == DNS_STATE_DROPPED) {
-                ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
-                CHECK_ERR(e);
-                return STATUS_CONNECTION_CLOSED;
+                dnsStateDtor(&dns_state);
+            } else {
+                // nothing to send (dropped): log right away
+                createLogLine(log, LOG_LINE_MAX, &con->address, &dns_state, rcode);
+                printLogLine(log);
+                dnsStateDtor(&dns_state);
+                if(dns_state.state == DNS_STATE_DROPPED) {
+                    ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+                    CHECK_ERR(e);
+                    return STATUS_CONNECTION_CLOSED;
+                }
             }
 
             con->currently_received -= message_size + TCP_MESSAGE_SIZE_BYTES;
@@ -228,35 +245,51 @@ static ExitStatus handleEvents(ProxyServerPtr server) {
                 break;
             case TCP_CLIENT: {
                 short revents = server->connections.poll_fds[i].revents;
+                uint8_t closed = 0;
 
                 if(revents & (POLLERR | POLLNVAL)) {
                     e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
                     CHECK_ERR(e);
+                    closed = 1;
                 }
 
-                if(revents & (POLLIN | POLLHUP)) {
+                // receive
+                if(!closed && (revents & (POLLIN | POLLHUP))) {
                     e = processTCPMessages(i, server);
-                    CHECK_ERR(e);
-                }
-
-                // idle timeout
-                size_t time_difference = 0;
-                e = getTimeDifference(server->connections.connections[i].last_event, &time_difference);
-                CHECK_ERR(e);
-                if(time_difference > TCP_CONNECTION_TIMEOUT * 1000) {
-                    e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
-                    CHECK_ERR(e);
+                    if(e == STATUS_CONNECTION_CLOSED) {
+                        closed = 1;
+                    } else {
+                        CHECK_ERR(e);
+                    }
                 }
 
                 // send
-                if(revents & POLLOUT) {
+                if(!closed && (revents & POLLOUT)) {
                     e = sendTCPmessages(i, server);
+                    if(e == STATUS_CONNECTION_CLOSED) {
+                        closed = 1;
+                    } else {
+                        CHECK_ERR(e);
+                    }
+                }
+
+                // idle timeout
+                if(!closed) {
+                    size_t time_difference = 0;
+                    e = getTimeDifference(server->connections.connections[i].last_event, &time_difference);
                     CHECK_ERR(e);
+                    if(time_difference > TCP_CONNECTION_TIMEOUT * 1000) {
+                        e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
+                        CHECK_ERR(e);
+                        closed = 1;
+                    }
+                }
+
+                if(closed) {
+                    continue;
                 }
                 break;
             }
-            default:
-                break;
         }
         i++;
     }
@@ -422,7 +455,7 @@ ExitStatus proxyServerStart(ProxyServerPtr server) {
             return STATUS_FAILURE;
         }
 
-        e = handleFinishedTransfers(server);
+        e = receiveForwardedQueries(server);
         CHECK_ERR(e);
     }
 }

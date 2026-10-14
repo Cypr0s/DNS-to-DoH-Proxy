@@ -10,7 +10,7 @@
 #include "server/socket.h"
 
 
-typedef struct {
+typedef struct proxy_server {
     ConnectionVector connections;
     BlockListTreePtr block_list_root;
     ZoneFileListTreePtr zone_file_root;

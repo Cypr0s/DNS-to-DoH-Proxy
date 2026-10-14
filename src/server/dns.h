@@ -81,6 +81,7 @@ typedef struct {
 } DNSState, *DNSStatePtr;
 
 #define GET_OPCODE(value) (((value) >> 11) & 0x000f)
+#define GET_RCODE(value) ((value) & 0x000f)
 #define OPT_TYPE_RECORD 41
 #define QCLASS_IN 1
 #define QTYPE_AXFR 252

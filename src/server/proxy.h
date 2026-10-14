@@ -2,7 +2,7 @@
 #define SERVER_PROXY_H
 
 #include "output.h"
-#include "proxy_server.h"
+#include "data-structures/proxy_server.h"
 
 
 ExitStatus proxyServerStart(ProxyServerPtr server);
