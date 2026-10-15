@@ -4,7 +4,7 @@ static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* curre
 static void parseDNSHeader(char* bytes, DNSHeaderPtr query_header);
 static ExitStatus parseDNSQuestion(char* bytes,size_t size, DNSQuestionPtr query_question, size_t* current_position);
 static ExitStatus parseLabels(char* bytes, size_t size, StringListPtr labels, size_t* current_position);
-static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, DNSFlagsPtr flags);
+static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, DNSFlagsPtr flags, uint16_t* opt_size);
 
 ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state) {
     // check 1: shorter than 12 octets → dropped;
@@ -148,7 +148,7 @@ static ExitStatus parseLabels(char* bytes, size_t size, StringListPtr labels, si
 }
 
 
-static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, DNSFlagsPtr dns_flags) {
+static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, DNSFlagsPtr dns_flags, uint16_t* opt_size) {
     size_t start_position = *current_position;
     ExitStatus e = parseLabels(bytes, size, NULL, current_position);
     CHECK_ERR(e);
@@ -163,8 +163,10 @@ static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, 
         if(start_position + 1 == *current_position) {
             *dns_flags |= DNS_FLAG_IS_ROOT;
         }
+        *opt_size = bytesToUShort(bytes + *current_position + 2);
     }
     *current_position += 2;
+
 
     // CLASS(2) + TLL(4)
     *current_position += 6;
@@ -181,7 +183,7 @@ static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, 
 
 static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* current_position, DNSStatePtr dns_state) {
     for(uint16_t i = 0; i < dns_state->query.header.ancount; i++) {
-        ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags);
+        ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags, &dns_state->query.opt_size);
         CHECK_ERR(e);
         if(dns_state->flags & DNS_FLAG_OPT) {
             return STATUS_FAILURE;
@@ -189,7 +191,7 @@ static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* curre
     }
 
     for(uint16_t i = 0; i <  dns_state->query.header.nscount; i++) {
-        ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags);
+        ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags, &dns_state->query.opt_size);
         CHECK_ERR(e);
         if(dns_state->flags & DNS_FLAG_OPT) {
             return STATUS_FAILURE;
@@ -198,7 +200,7 @@ static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* curre
     uint8_t opt_cnt = 0;
     for(uint16_t i = 0; i <  dns_state->query.header.arcount; i++) {
         dns_state->flags &= ~(DNS_FLAG_OPT | DNS_FLAG_IS_ROOT);
-        ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags);
+        ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags, &dns_state->query.opt_size);
         CHECK_ERR(e);
         if (dns_state->flags & DNS_FLAG_OPT) {
             opt_cnt++;
@@ -207,6 +209,10 @@ static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* curre
                 return STATUS_FAILURE;
             }
         }
+    }
+
+    if(opt_cnt == 1) {
+        dns_state->flags |= DNS_FLAG_OPT;
     }
 
     return STATUS_SUCCESS;
@@ -329,6 +335,49 @@ ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, size_t owner_size,
             break;
     }
     return STATUS_SUCCESS;
+}
+
+
+void addOPT(DNSStatePtr dns_state) {
+    char* curr_reply = dns_state->reply + dns_state->reply_current_size;
+    memset(curr_reply, 0, OPT_BARE_SIZE); // 11 bytes of '0' for qname, tll and rdatalen
+    // type
+    uShortToBytes(OPT_TYPE_RECORD, curr_reply + 1);
+    // class (size)
+    uShortToBytes(OPT_MAX_SIZE, curr_reply + 3);
+     // additional
+    uint16_t additional_count = bytesToUShort(dns_state->reply + 10);
+    additional_count++;
+    uShortToBytes(additional_count, dns_state->reply + 10);
+    dns_state->reply_current_size += OPT_BARE_SIZE;
+}
+
+
+void truncateUDP(DNSStatePtr dns_state) {
+    size_t size = DNS_UDP_WITHOUT_OPT;
+    if(dns_state->flags & DNS_FLAG_OPT && dns_state->flags & DNS_FLAG_PARSED_RRS) {
+        size = dns_state->query.opt_size;
+        if(size < DNS_UDP_WITHOUT_OPT) {
+            size = DNS_UDP_WITHOUT_OPT;
+        }
+        if(size > OPT_MAX_SIZE) {
+            size = OPT_MAX_SIZE;
+        }
+    }
+    if(dns_state->reply_current_size <= size) {
+        return;
+    }
+    // set TC
+    uint16_t flags = bytesToUShort(dns_state->reply + 2);
+    flags |= TC;
+    uShortToBytes(flags, dns_state->reply + 2);
+    // reset ar,ns,an
+    memset(dns_state->reply + 6, 0, 6);                    
+    dns_state->reply_current_size = DNS_QUERY_MIN_LENGHT + dns_state->query.question.question_size;
+    // add opt
+    if(dns_state->flags & DNS_FLAG_OPT && dns_state->flags & DNS_FLAG_PARSED_RRS) {
+        addOPT(dns_state);
+    }
 }
 
 

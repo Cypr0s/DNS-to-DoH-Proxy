@@ -3,6 +3,8 @@
 
 #include "output.h"
 #include "data-structures/proxy_server.h"
+#include <signal.h>
+extern volatile sig_atomic_t shutdown_status;
 
 
 ExitStatus proxyServerStart(ProxyServerPtr server);

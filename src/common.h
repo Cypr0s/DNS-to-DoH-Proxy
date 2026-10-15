@@ -20,6 +20,7 @@
 #define IPV6_ADDRESS_BYTES 16
 #define MAX_FORWARDED_REQUESTS 128
 
+
 // printing
 #define LONGEST_POSSIBLE_QNAME 1005 // ((63 * 3) + 61) * 4 + 4 * ('.') == 1005
 #define LOG_LINE_MAX 1150 // 25 time + 53 client + 1005 qname +  9 qtype + 9 verdict + 8 rcode + 6 spaces + newline + gap

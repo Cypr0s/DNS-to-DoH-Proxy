@@ -8,6 +8,35 @@ static ExitStatus getTime(struct timespec* time);
 static ExitStatus getTimeDifference(struct timespec start_time, size_t* out_val);
 static ExitStatus handleEvents(ProxyServerPtr server);
 static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPtr server, DNSStatePtr dns_state);
+static ExitStatus closeTCPConnection(ProxyServerPtr server, int fd);
+static uint8_t clientHasConnection(ProxyServerPtr server, int fd);
+static void proxyServerShutdown(ProxyServerPtr server);
+
+
+static ExitStatus closeTCPConnection(ProxyServerPtr server, int fd) {
+    // delete all forwarded requests
+    size_t i = 0;
+    while(i < server->forwarded_requests.current_size) {
+        ForwardRequestPtr req = server->forwarded_requests.forwarded_requests[i];
+        if((req->flags & FORWARD_IS_TCP) && req->socket_fd == fd) {
+            forwardRequestDelete(server, i);
+        } else {
+            i++;
+        }
+    }
+    return connectionVectorDelete(&server->connections, fd);
+}
+
+static uint8_t clientHasConnection(ProxyServerPtr server, int fd) {
+    for(size_t i = 0; i < server->forwarded_requests.current_size; i++) {
+        ForwardRequestPtr req = server->forwarded_requests.forwarded_requests[i];
+        if((req->flags & FORWARD_IS_TCP) && req->socket_fd == fd) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 
 // https://www.ibm.com/docs/en/i/7.1.0?topic=designs-using-poll-instead-select
 static ExitStatus acceptConnections(int fd, ConnectionVectorPtr connections) {
@@ -66,6 +95,7 @@ static ExitStatus processUDPMessages(int fd, ProxyServerPtr server) {
 
         int8_t rcode = -1;
         if(dns_state.reply != NULL) {
+            truncateUDP(&dns_state);
             msg_size = sendto(fd, dns_state.reply, dns_state.reply_current_size, 0, (struct sockaddr*) &address, address_size);
             if(msg_size < 0) {
                 // TODO ERROR
@@ -93,13 +123,13 @@ static ExitStatus sendTCPmessages(size_t connection_index, ProxyServerPtr server
             return STATUS_SUCCESS;
         }
 
-        ssize_t sent = send(poll_id->fd, reply->data + reply->sent, reply->size - reply->sent,0);
+        ssize_t sent = send(poll_id->fd, reply->data + reply->sent, reply->size - reply->sent, 0);
         if(sent < 0) {
             if(errno == EAGAIN || errno == EWOULDBLOCK) {
                 return STATUS_SUCCESS;
             }
             // close connection
-            ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+            ExitStatus e = closeTCPConnection(server, server->connections.poll_fds[connection_index].fd);
             CHECK_ERR(e);
             return STATUS_CONNECTION_CLOSED;
         }
@@ -130,14 +160,14 @@ static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr ser
                 break;
             }
             
-            ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+            ExitStatus e = closeTCPConnection(server, server->connections.poll_fds[connection_index].fd);
             CHECK_ERR(e);
             return STATUS_CONNECTION_CLOSED;
         }
 
         if(received == 0) {
             // client closed the connection
-            ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+            ExitStatus e = closeTCPConnection(server, server->connections.poll_fds[connection_index].fd);
             CHECK_ERR(e);
             return STATUS_CONNECTION_CLOSED;
         }
@@ -147,7 +177,7 @@ static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr ser
         while(con->currently_received >= TCP_MESSAGE_SIZE_BYTES) {
             uint16_t message_size = bytesToUShort(con->message_buffer);
             if(message_size == 0) {
-                ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+                ExitStatus e = closeTCPConnection(server, server->connections.poll_fds[connection_index].fd);
                 CHECK_ERR(e);
                 return STATUS_CONNECTION_CLOSED;
             }
@@ -195,7 +225,7 @@ static ExitStatus processTCPMessages(size_t connection_index, ProxyServerPtr ser
                 printLogLine(log);
                 dnsStateDtor(&dns_state);
                 if(dns_state.state == DNS_STATE_DROPPED) {
-                    ExitStatus e = connectionVectorDelete(&server->connections, server->connections.poll_fds[connection_index].fd);
+                    ExitStatus e = closeTCPConnection(server, server->connections.poll_fds[connection_index].fd);
                     CHECK_ERR(e);
                     return STATUS_CONNECTION_CLOSED;
                 }
@@ -248,7 +278,7 @@ static ExitStatus handleEvents(ProxyServerPtr server) {
                 uint8_t closed = 0;
 
                 if(revents & (POLLERR | POLLNVAL)) {
-                    e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
+                    e = closeTCPConnection(server, server->connections.poll_fds[i].fd);
                     CHECK_ERR(e);
                     closed = 1;
                 }
@@ -278,8 +308,8 @@ static ExitStatus handleEvents(ProxyServerPtr server) {
                     size_t time_difference = 0;
                     e = getTimeDifference(server->connections.connections[i].last_event, &time_difference);
                     CHECK_ERR(e);
-                    if(time_difference > TCP_CONNECTION_TIMEOUT * 1000) {
-                        e = connectionVectorDelete(&server->connections, server->connections.poll_fds[i].fd);
+                    if(time_difference > TCP_CONNECTION_TIMEOUT * 1000 && !clientHasConnection(server, server->connections.poll_fds[i].fd)) {
+                        e = closeTCPConnection(server, server->connections.poll_fds[i].fd);
                         CHECK_ERR(e);
                         closed = 1;
                     }
@@ -434,14 +464,20 @@ static ExitStatus handleDNSQuery(char* bytes, size_t message_size, ProxyServerPt
         default:
             return STATUS_FAILURE;
     }
-    uShortToBytes(response_header_flags, dns_state->reply + 2);    
+    uShortToBytes(response_header_flags, dns_state->reply + 2);
+    if((dns_state->flags & DNS_FLAG_PARSED_RRS) && (dns_state->flags & DNS_FLAG_OPT)) {
+        addOPT(dns_state);
+    }
     return STATUS_SUCCESS;
 }
 
 
 ExitStatus proxyServerStart(ProxyServerPtr server) {
-    while(1) {
+    while(!shutdown_status) {
         if(poll(server->connections.poll_fds, server->connections.curr_size, POLL_TIMEOUT) < 0) {
+            if(errno == EINTR) { // signal interrupt
+                   continue;
+               }
             return STATUS_FAILURE;
         }
 
@@ -457,5 +493,19 @@ ExitStatus proxyServerStart(ProxyServerPtr server) {
 
         e = receiveForwardedQueries(server);
         CHECK_ERR(e);
+    }
+    proxyServerShutdown(server);
+    return STATUS_SUCCESS;
+}
+
+
+static void proxyServerShutdown(ProxyServerPtr server) {
+    for(size_t i = 0; i < server->forwarded_requests.current_size; i++) {
+        handleForwardRequestAnswer(server, server->forwarded_requests.forwarded_requests[i], 0, 0); // 0 as code will use servfail
+    }
+    for(size_t i = server->connections.curr_size; i-- > 0;) { // due to swapping positions
+        if(server->connections.connections[i].type == TCP_CLIENT) {
+            sendTCPmessages(i, server);
+        }
     }
 }

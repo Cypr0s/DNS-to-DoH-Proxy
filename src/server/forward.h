@@ -36,7 +36,7 @@ typedef struct {
 } ForwardRequestArray, *ForwardRequestArrayPtr;
 
 
-ForwardRequestPtr forwardRequestCreate(const char* query, 
+ForwardRequestPtr forwardRequestCreate(char* query, 
     size_t query_size,
     uint8_t flags, 
     int socket_fd,
@@ -53,5 +53,7 @@ ExitStatus forwardDNSQuery(struct proxy_server* server, ForwardRequestPtr req);
 ExitStatus receiveForwardedQueries(struct proxy_server* server);
 
 void forwardCleanup(struct proxy_server* server);
+
+ExitStatus handleForwardRequestAnswer(struct proxy_server* server, ForwardRequestPtr req, CURLcode result, long http_code);
 
 #endif // FORWARD_H

@@ -1,9 +1,10 @@
-
 #include "server/forward.h"
 #include "data-structures/proxy_server.h"
 
  
 static size_t cb(char* data, size_t size, size_t nmemb, void* clientp);
+static CURLcode setupTransferHandle(ProxyServerPtr server, ForwardRequestPtr req);
+static uint8_t isValidResponse(ForwardRequestPtr req);
 
 
 // https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html
@@ -99,6 +100,8 @@ static CURLcode setupTransferHandle(ProxyServerPtr server, ForwardRequestPtr req
     CHECK_CURL(curl_exit);
     curl_exit = curl_easy_setopt(req->easy, CURLOPT_FOLLOWLOCATION, 0L);
     CHECK_CURL(curl_exit);
+    curl_exit = curl_easy_setopt(req->easy, CURLOPT_NOSIGNAL, 1L);
+    CHECK_CURL(curl_exit);
     // insecure
     char* ca_file = getenv("SSL_CERT_FILE");
     if(server->insecure) {
@@ -147,7 +150,7 @@ static uint8_t isValidResponse(ForwardRequestPtr req) {
         return 0;
     }
 
-    // question = QNAME + QTYPE + QCLASS, the response must be long enough to contain it
+    // question 
     size_t qsize = req->dns_state.query.question.question_size;
     if(qsize < 5 || req->response_size < DNS_QUERY_MIN_LENGHT + qsize) {
         return 0;
@@ -163,7 +166,7 @@ static uint8_t isValidResponse(ForwardRequestPtr req) {
 }
 
 
-static ExitStatus handleForwardRequestAnswer(ProxyServerPtr server, ForwardRequestPtr req, CURLcode result, long http_code) {
+ExitStatus handleForwardRequestAnswer(ProxyServerPtr server, ForwardRequestPtr req, CURLcode result, long http_code) {
     char* reply = req->dns_state.reply;
     size_t reply_size = req->dns_state.reply_current_size;
 
@@ -176,6 +179,14 @@ static ExitStatus handleForwardRequestAnswer(ProxyServerPtr server, ForwardReque
     int8_t rcode = GET_RCODE(bytesToUShort(reply + 2));
 
     if(req->flags & FORWARD_IS_UDP) { // udp
+        if(reply == req->response) {
+            memcpy(req->dns_state.reply, req->response, reply_size);
+            req->dns_state.reply_current_size = reply_size;
+            reply = req->dns_state.reply;
+        }
+        truncateUDP(&req->dns_state);
+        reply_size = req->dns_state.reply_current_size;
+
         sendto(req->socket_fd, reply, reply_size, 0, (struct sockaddr*)&req->client, req->client_size);
         char log[LOG_LINE_MAX];
         createLogLine(log, LOG_LINE_MAX, &req->client, &req->dns_state, rcode);
@@ -235,4 +246,3 @@ void forwardCleanup(ProxyServerPtr server) {
         forwardRequestDelete(server, server->forwarded_requests.current_size - 1);
     }
 }
- 

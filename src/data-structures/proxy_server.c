@@ -33,7 +33,7 @@ ExitStatus proxyServerInit(ParsedArgsPtr parsed_args, ProxyServerPtr server) {
         return STATUS_FAILURE;
     }
 
-    if(curl_multi_setopt(server->multi_handle, CURLMOPT_MAX_TOTAL_CONNECTIONS, MAX_FORWARDED_REQUESTS) != CURLM_OK) {
+    if(curl_multi_setopt(server->multi_handle, CURLMOPT_MAX_TOTAL_CONNECTIONS, (long)MAX_FORWARDED_REQUESTS) != CURLM_OK) {
         PRINT_ERROR("curl_multi_setopt failed");
         return STATUS_FAILURE;
     }

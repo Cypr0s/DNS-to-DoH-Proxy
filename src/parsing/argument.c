@@ -50,7 +50,6 @@ ExitStatus parseArguments(int argc, char**argv, ParsedArgsPtr parsed_args) {
         parsed_args->flags |= arg->flag;
 
         if(arg->flag == ARG_HELP) {
-            PRINT_ERROR(HELP_MESAGE);
             return STATUS_SUCCESS;
         }
 

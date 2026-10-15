@@ -50,6 +50,7 @@ typedef struct {
 typedef struct {
     DNSHeader header;
     DNSQuestion question;
+    uint16_t opt_size;
 } DNSQuery, *DNSQueryPtr;
 
 typedef enum {
@@ -83,6 +84,9 @@ typedef struct {
 #define GET_OPCODE(value) (((value) >> 11) & 0x000f)
 #define GET_RCODE(value) ((value) & 0x000f)
 #define OPT_TYPE_RECORD 41
+#define OPT_BARE_SIZE 11 // 1 for qname + 2(class) + 2(type) + 4(ttl) + 2(rdata)
+#define OPT_MAX_SIZE 1232
+#define DNS_UDP_WITHOUT_OPT 512
 #define QCLASS_IN 1
 #define QTYPE_AXFR 252
 #define QTYPE_IXFR 251
@@ -98,6 +102,10 @@ ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state);
 ExitStatus createDNSAnswer(DNSStatePtr dns_state);
 
 ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, size_t owner_size, ZoneEntryPtr zone_entry, DNSFieldType type);
+
+void addOPT(DNSStatePtr dns_state);
+
+void truncateUDP(DNSStatePtr dns_state);
 
 void dnsStateDtor(DNSStatePtr dns_state);
 
