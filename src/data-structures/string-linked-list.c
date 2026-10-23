@@ -1,12 +1,29 @@
+/**
+ * @file    string-linked-list.c
+ * @author  Kristian Luptak
+ * @brief   Contains definitions of string linked list struct
+ *          
+ * @date    2026-10-23
+ */
+
 #include "data-structures/string-linked-list.h"
 
-void stringListInit(StringListPtr list) {
+
+void stringListCtor(StringListPtr list) {
     list->head = NULL;
 }
 
+/**
+ * @brief           
+ * 
+ * @param list 
+ * @param data 
+ * @return ExitStatus
+ */
 ExitStatus stringListInsert(StringListPtr list, char* data) {
     StringNodePtr node = (StringNodePtr) malloc(sizeof(StringNode));
     if(node == NULL) {
+        PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
     node->data = data;
@@ -25,7 +42,7 @@ void stringListPop(StringListPtr list) {
     list->head = tmp;
 }
 
-void stringListDestroy(StringListPtr list) {
+void stringListDtor(StringListPtr list) {
     while(list->head != NULL) {
         stringListPop(list);
     }
@@ -46,7 +63,7 @@ char* stringListIterNext(StringListIteratorPtr it) {
     return tmp->data;
 }
 
-void stringListDestroyFree(StringListPtr list) {
+void stringListDtorFree(StringListPtr list) {
     while(list->head != NULL) {
         free(list->head->data);
         stringListPop(list);

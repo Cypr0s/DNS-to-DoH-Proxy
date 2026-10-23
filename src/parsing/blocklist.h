@@ -3,7 +3,7 @@
 
 #include "data-structures/string-linked-list.h"
 #include "util/file.h"
-#include "data-structures/block-list-tree.h"
+#include "data-structures/block-list-table.h"
 #include "common.h"
 #include <ctype.h>
 #include <stdint.h>
@@ -15,7 +15,6 @@
 
 typedef enum {
     BLOCKLIST_IS_FIRST_TOKEN = 0x01,
-    BLOCKLIST_IS_ONLY_NUMBERS = 0x02,
 } BlockListFlags;
 
 typedef struct {
@@ -23,6 +22,6 @@ typedef struct {
     BlockListFlags flags;
 } BlockListCtx, *BlockListCtxPtr;
 
-ExitStatus parseBlockList(StringListPtr block_list, BlockListTreePtr root);
+ExitStatus parseBlockList(StringListPtr block_list, HashTablePtr root);
 
 #endif // PARSING_BLOCKLIST_H

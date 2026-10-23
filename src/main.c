@@ -1,7 +1,15 @@
+/**
+ * @file    main.c
+ * @author  Kristian Luptak
+ * @brief   Main function 
+ *          
+ * @date    2026-10-23
+ */
+
 
 #include "main.h"
-
-volatile sig_atomic_t shutdown_status = 0; // https://en.wikipedia.org/wiki/C_signal_handling
+// Taken from: https://en.wikipedia.org/wiki/C_signal_handling
+volatile sig_atomic_t shutdown_status = 0;
 
 static void catch_function(int signo) {
     shutdown_status = signo;
@@ -9,17 +17,17 @@ static void catch_function(int signo) {
 
 int main(int argc, char* argv[]) {
     if(signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
-        PRINT_ERROR("");
+        PRINT_ERROR("Signal interrupt");
         return STATUS_FAILURE;
     }
     // https://en.wikipedia.org/wiki/C_signal_handling setup handling signals
     if(signal(SIGINT, catch_function) == SIG_ERR) {
-        PRINT_ERROR("");
+        PRINT_ERROR("Signal interrupt");
         return STATUS_FAILURE;
     }
 
     if(signal(SIGTERM, catch_function) == SIG_ERR) {
-        PRINT_ERROR("");
+        PRINT_ERROR("Signal interrupt");
         return STATUS_FAILURE;
     }
 

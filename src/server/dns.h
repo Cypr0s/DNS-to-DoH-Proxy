@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include "util/string.h"
 #include "data-structures/string-linked-list.h"
-#include "data-structures/block-list-tree.h"
 #include "data-structures/zone-file-tree.h"
 
 typedef enum {

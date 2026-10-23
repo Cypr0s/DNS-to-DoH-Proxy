@@ -1,3 +1,12 @@
+/**
+ * @file    zone-file-tree.h
+ * @author  Kristian Luptak
+ * @brief   Contains declarations of zone-file-tree
+ *          
+ * @date    2026-10-23
+ */
+
+
 #ifndef ZONE_FILE_TREE_H
 #define ZONE_FILE_TREE_H
 

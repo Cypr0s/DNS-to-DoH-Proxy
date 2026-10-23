@@ -1,22 +1,39 @@
+/**
+ * @file    reply-queue.c
+ * @author  Kristian Luptak
+ * @brief   Contains definitions of reply queue struct
+ *          
+ * @date    2026-10-23
+ */
+
 #include "data-structures/reply-queue.h"
 
-void tcpReplyQueueInit(TCPReplyQueuePtr queue) {
+
+void tcpReplyQueueCtor(TCPReplyQueuePtr queue) {
     queue->head = NULL;
     queue->tail = NULL;
 }
 
+
 ExitStatus tcpReplyQueuePush(TCPReplyQueuePtr queue, char* reply, size_t reply_size, char* log) {
-    TCPReply *new_reply = malloc(sizeof(TCPReply));
+    if(queue == NULL) {
+        return;
+    }
+    // new reply
+    TCPReply* new_reply = malloc(sizeof(TCPReply));
     if(new_reply == NULL) {
+        PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
 
     new_reply->data = malloc(reply_size + TCP_MESSAGE_SIZE_BYTES);
     if(new_reply->data == NULL) {
         free(new_reply);
+        PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
 
+    // copy to the queue
     uShortToBytes((uint16_t)reply_size, new_reply->data);
 
     memcpy(new_reply->data + TCP_MESSAGE_SIZE_BYTES, reply, reply_size);
@@ -56,11 +73,12 @@ void tcpReplyQueueDelete(TCPReplyQueuePtr queue) {
 }
 
 
-void tcpReplyQueueClean(TCPReplyQueue *queue) {
+void tcpReplyQueueDtor(TCPReplyQueue *queue) {
     while(queue->head != NULL) {
         tcpReplyQueueDelete(queue);
     }
 }
+
 
 TCPReplyPtr tcpReplyQueueGet(TCPReplyQueuePtr queue) {
     return queue->head;

@@ -1,3 +1,11 @@
+/**
+ * @file    string-linked-list.h
+ * @author  Kristian Luptak
+ * @brief   Contains declarations of string linked list struct
+ *          
+ * @date    2026-10-23
+ */
+
 #ifndef STRING_LINKED_LIST_H
 #define STRING_LINKED_LIST_H
 
@@ -20,6 +28,12 @@ typedef struct {
     StringNodePtr curr;
 } StringListIterator, *StringListIteratorPtr;
 
+
+/**
+ * @brief       Initializes string list
+ * 
+ * @param list  Target list
+ */
 void stringListInit(StringListPtr list);
 
 ExitStatus stringListInsert(StringListPtr list, char* data);

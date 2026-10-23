@@ -1,5 +1,49 @@
+/**
+ * @file    output.c
+ * @author  Kristian Luptak
+ * @brief   Contains printing functions
+ *          
+ * @date    2026-10-23
+ */
+
 #include "output.h"
 
+/**
+ * @brief       Converts state to string verdict
+ * 
+ * @param state Input state 
+ * @return      char* 
+ */
+static char* getVerdict(uint8_t state);
+
+
+/**
+ * @brief       Converts rcode to string rcode or -
+ * 
+ * @param state Input state 
+ * @return      char* 
+ */
+static char* getRcode(int8_t rcode_in);
+
+
+/**
+ * @brief       Converts q to string qtype or NULL
+ * 
+ * @param state Input state 
+ * @return      char* 
+ */
+static char* getQtype(uint16_t qtype);
+
+
+/**
+ * @brief       Converts q to string qtype or NULL
+ * 
+ * @param state Input state 
+ * @return      char* 
+ */
+static void formatClient(struct sockaddr_storage* address, char* out, size_t out_size);
+
+static void formatQname(char* str_in, char* str_out, size_t out_size);
 
 static char* getVerdict(uint8_t state) {
     switch(state) {
@@ -136,8 +180,7 @@ static void formatQname(char* str_in, char* str_out, size_t out_size) {
 
 
 void createLogLine(char* out, size_t out_size, struct sockaddr_storage* address_in, DNSStatePtr dns_state, int8_t rcode_in) {
-    // time
-    // https://stackoverflow.com/questions/48771851/im-trying-to-build-an-rfc3339-timestamp-in-c-how-do-i-get-the-timezone-offset
+    // Time formatting taken from https://stackoverflow.com/questions/48771851/im-trying-to-build-an-rfc3339-timestamp-in-c-how-do-i-get-the-timezone-offset
     time_t now;
     time(&now);
     struct tm *p = localtime(&now);

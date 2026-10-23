@@ -1,11 +1,19 @@
+/**
+ * @file    error.h
+ * @author  Kristian Luptak
+ * @brief   Printing errors onto stderr, checking errors
+ *          copied from: https://github.com/Cypr0s/CyprSH/blob/main/src/error.c
+ *          
+ * @date    2026-10-23
+ */
+
 #ifndef ERROR_H
 #define ERROR_H
 
 #include <stdlib.h>
 #include <errno.h>
-#include <stdarg.h> // va_list, va_start, va_end
-#include <stdio.h> // vprintf, fprintf, stderr
-#include <curl/curl.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 
 #define CHECK_ERR(status) do {      \
@@ -39,8 +47,15 @@ typedef enum {
 } ExitStatus;
 
 
+/**
+ * @brief           Prints message into stderr
+ * 
+ * @param format    Format of the message eg "aaaa:%s %d"
+ * @param ...       Format parameters
+ */
 void printErrorMsg(char* format, ...);
 
+// 
 #define PRINT_FILELIST_PARSE_ERROR(file, line, msg) (printErrorMsg("%s:%zu: %s", file, line, msg))
 #define PRINT_ARGUMENT_PARSE_ERROR(format, ...) (printErrorMsg(format, __VA_ARGS__))
 #define PRINT_LISTENING_SOCKET(address, port) (printErrorMsg("listening on %s:%u", address, port))

@@ -1,3 +1,11 @@
+/**
+ * @file    zone-entry-list.h
+ * @author  Kristian Luptak
+ * @brief   Contains declarations of zone-entry-list
+ *          
+ * @date    2026-10-23
+ */
+
 #ifndef ZONE_ENTRY_LIST_H
 #define ZONE_ENTRY_LIST_H
 
@@ -89,18 +97,62 @@ typedef struct {
     ZoneNodePtr curr;
 } ZoneListIterator, *ZoneListIteratorPtr;
 
+
+/**
+ * @brief       Initializes zone list
+ * 
+ * @param list  Target list
+ */
 void zoneListInit(ZoneListPtr list);
 
+
+/**
+ * @brief               IInserts one item into the front of list
+ * 
+ * @param list          Target list
+ * @param zone_entry    Zone entry to be inserted
+ */
 ExitStatus zoneListInsert(ZoneListPtr list, ZoneEntryPtr zone_entry);
 
+
+/**
+ * @brief       Frees one item from the front of list
+ * 
+ * @param list  Target list
+ */
 void zoneListPop(ZoneListPtr list);
 
+
+/**
+ * @brief       Destructs whole list
+ * 
+ * @param list  Target list
+ */
 void zoneListDestroy(ZoneListPtr list);
 
+/**
+ * @brief       Creates iterator which points to front of list
+ * 
+ * @param it    Iterator
+ * @param list  Target list
+ */
 void zoneListIterInit(ZoneListIteratorPtr it, ZoneListPtr list);
 
+
+/**
+ * @brief       Moves iterator to next item and returns zone entry
+ * 
+ * @param it    Iterator
+ */
 ZoneEntryPtr zoneListIterNext(ZoneListIteratorPtr it);
 
+
+/**
+ * @brief               Retruns one entry type which matches the input entry type
+ * 
+ * @param list  I       nput list
+ * @param entry_type    the type of entry eg. SOA, NS, MX ,...
+ */
 ZoneEntryPtr getEntry(ZoneListPtr list, int8_t entry_type);
 
 #endif // ZONE_ENTRY_LIST_H

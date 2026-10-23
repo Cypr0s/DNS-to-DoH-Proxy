@@ -1,12 +1,23 @@
+/**
+ * @file    zone-entry-list.c
+ * @author  Kristian Luptak
+ * @brief   Contains implementation API of zone entry list
+ *          
+ * @date    2026-10-23
+ */
+
 #include "data-structures/zone-entry-list.h"
 
-void zoneListInit(ZoneListPtr list) {
+
+void zoneListCtor(ZoneListPtr list) {
     list->head = NULL;
 }
+
 
 ExitStatus zoneListInsert(ZoneListPtr list, ZoneEntryPtr zone_entry) {
     ZoneNodePtr node = (ZoneNodePtr) malloc(sizeof(ZoneNode));
     if(node == NULL) {
+        PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
     node->zone_entry = *zone_entry;
@@ -27,7 +38,7 @@ void zoneListPop(ZoneListPtr list) {
 }
 
 
-void zoneListDestroy(ZoneListPtr list) {
+void zoneListDtor(ZoneListPtr list) {
     while(list->head != NULL) {
         zoneListPop(list);
     }
@@ -37,6 +48,7 @@ void zoneListDestroy(ZoneListPtr list) {
 void zoneListIterInit(ZoneListIteratorPtr it, ZoneListPtr list) {
     it->curr = list->head;
 }
+
 
 
 ZoneEntryPtr zoneListIterNext(ZoneListIteratorPtr it) {

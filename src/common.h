@@ -1,3 +1,11 @@
+/**
+ * @file    common.h
+ * @author  Kristian Luptak
+ * @brief   Contains shared information about the project
+ *          
+ * @date    2026-10-23
+ */
+
 #ifndef COMMON_H
 #define COMMON_H
 

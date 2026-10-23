@@ -7,17 +7,17 @@
 #include <string.h>
 #include "file.h"
 
-ssize_t convertStrToNum(char* input, ssize_t min_boundary, ssize_t max_boundary);
+ssize_t convertStrToNum(const char* input, ssize_t min_boundary, ssize_t max_boundary);
 
-uint16_t bytesToUShort(char* input);
+uint16_t bytesToUShort(const char* input);
 
-uint32_t bytesToUint(char* input);
+uint32_t bytesToUint(const char* input);
 
-uint8_t isValidDomainName(char* name);
+uint8_t isValidDomainName(const char* name);
 
-uint32_t bytesToUint(char* input);
+uint32_t bytesToUint(const char* input);
 
-uint16_t bytesToUShort(char* input);
+uint16_t bytesToUShort(const char* input);
 
 void uShortToBytes(uint16_t value, char *output);
 

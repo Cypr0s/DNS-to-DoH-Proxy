@@ -1,5 +1,13 @@
-#include "data-structures/zone-file-tree.h"
+/**
+ * @file    zone-file-tree.c
+ * @author  Kristian Luptak
+ * @brief   Contains implementation API of zone file tree
+ *          
+ * @date    2026-10-23
+ */
 
+#include "data-structures/zone-file-tree.h"
+// coments from here
 ZoneFileListTreePtr zoneFileTreeFindNode(ZoneFileListTreePtr node, char* val) {
     if(node == NULL) {
         return NULL;
