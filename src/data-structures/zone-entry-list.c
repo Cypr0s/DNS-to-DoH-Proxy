@@ -45,7 +45,7 @@ void zoneListDtor(ZoneListPtr list) {
 }
 
 
-void zoneListIterInit(ZoneListIteratorPtr it, ZoneListPtr list) {
+void zoneListIterCtor(ZoneListIteratorPtr it, ZoneListPtr list) {
     it->curr = list->head;
 }
 

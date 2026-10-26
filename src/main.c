@@ -48,7 +48,7 @@ int main(int argc, char* argv[]) {
         parsedArgsDtor(&parsed_args);
         return STATUS_FAILURE;
     }
-    e = proxyServerInit(&parsed_args, &server);
+    e = proxyServerCtor(&parsed_args, &server);
     CHECK_ERR_AND_FREE(e, proxyServerDtor(&server); parsedArgsDtor(&parsed_args););
     if(shutdown_status) {
         proxyServerDtor(&server); 

@@ -1,3 +1,11 @@
+/**
+ * @file    blocklist.c
+ * @author  Kristian Luptak
+ * @brief   Contains declarations of parsing functions for blocklists
+ *          
+ * @date    2026-10-23
+ */
+
 #ifndef PARSING_BLOCKLIST_H
 #define PARSING_BLOCKLIST_H
 
@@ -7,6 +15,7 @@
 #include "common.h"
 #include <ctype.h>
 #include <stdint.h>
+#include "util/string.h"
 
 
 #define BLOCKLIST_MAX_TOKEN_LENGTH 254
@@ -14,7 +23,7 @@
 #define BLOCKLIST_MAX_LABEL_LENGTH 63
 
 typedef enum {
-    BLOCKLIST_IS_FIRST_TOKEN = 0x01,
+    BLOCKLIST_IS_FIRST_TOKEN = 0x01
 } BlockListFlags;
 
 typedef struct {
@@ -22,6 +31,14 @@ typedef struct {
     BlockListFlags flags;
 } BlockListCtx, *BlockListCtxPtr;
 
+
+/**
+ * @brief               Parses all blocklist files into hash table
+ * 
+ * @param block_list    List of blocklist file names
+ * @param table         Hash table of blocked domains
+ * @return              ExitStatus 
+ */
 ExitStatus parseBlockList(StringListPtr block_list, HashTablePtr root);
 
 #endif // PARSING_BLOCKLIST_H

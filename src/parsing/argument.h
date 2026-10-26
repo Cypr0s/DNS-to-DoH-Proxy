@@ -1,3 +1,11 @@
+/**
+ * @file    argument.h
+ * @author  Kristian Luptak
+ * @brief   Contains declarations of parsing program arguments
+ *          
+ * @date    2026-10-23
+ */
+
 #ifndef PARSING_ARGUMENTS_H
 #define PARSING_ARGUMENTS_H
 
@@ -44,8 +52,18 @@ typedef struct argument {
     bool may_be_used_only_once;
 } Arg, *ArgPtr;
 
+/**
+ * @brief               Initializes parsed args struct
+ * 
+ * @param parsed_args   Input struct
+ */
 void parsedArgsCtor(ParsedArgsPtr parsed_args);
 
+/**
+ * @brief               Destroys parsed arguments
+ * 
+ * @param parsed_args   Input struct
+ */
 void parsedArgsDtor(ParsedArgsPtr parsed_args);
 
 ExitStatus parseArguments(int argc, char** argv, ParsedArgsPtr parsed_args);

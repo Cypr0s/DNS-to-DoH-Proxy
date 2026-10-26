@@ -1,3 +1,11 @@
+/**
+ * @file    dns.h
+ * @author  Kristian Luptak
+ * @brief   Contains declarations functions which work with dns queries like parsing and constructing replies
+ *          
+ * @date    2026-10-23
+ */
+
 #ifndef SERVER_DNS_H
 #define SERVER_DNS_H
 
@@ -96,16 +104,61 @@ typedef enum {
     DNS_ADDITIONAL,
 } DNSFieldType;
 
+
+/**
+ * @brief           Parses and validates DNS query
+ * 
+ * @param bytes     Input bytes
+ * @param size      Input size
+ * @param dns_state DNS state to fill
+ * @return          ExitStatus 
+ */
 ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state);
 
+
+/**
+ * @brief           Creates reply header and question
+ * 
+ * @param dns_state DNS state
+ * @return          ExitStatus 
+ */
 ExitStatus createDNSAnswer(DNSStatePtr dns_state);
 
+
+/**
+ * @brief               Adds resource record to reply
+ * 
+ * @param dns_state     DNS state
+ * @param owner         Owner name in wire format
+ * @param owner_size    Owner name size
+ * @param zone_entry    Zone entry to add
+ * @param type          Answer or authority section
+ * @return              ExitStatus 
+ */
 ExitStatus addAnswerField(DNSStatePtr dns_state, char* owner, size_t owner_size, ZoneEntryPtr zone_entry, DNSFieldType type);
 
+
+/**
+ * @brief           Adds OPT record to reply
+ * 
+ * @param dns_state DNS state
+ */
 void addOPT(DNSStatePtr dns_state);
 
+
+/**
+ * @brief           Truncates UDP reply if too large
+ * 
+ * @param dns_state DNS state
+ */
 void truncateUDP(DNSStatePtr dns_state);
 
+
+/**
+ * @brief           Frees DNS state
+ * 
+ * @param dns_state DNS state
+ */
 void dnsStateDtor(DNSStatePtr dns_state);
 
 #endif // SERVER_DNS_H

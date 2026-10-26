@@ -391,3 +391,36 @@ uint8_t hashTableContains(HashTablePtr table, const char* key) {
     }
     return 1;
 } // hashTableContains
+
+
+uint8_t isBlocked(HashTablePtr block_list, StringListPtr labels) {
+    char buff[DNS_MAX_TOKEN_LENGTH];
+    size_t pos = DNS_MAX_TOKEN_LENGTH - 1;
+    buff[pos] = '\0';
+
+    StringListIterator it;
+    stringListIterCtor(&it, labels);
+    char* label;
+    uint8_t first = 1;
+
+    while((label = stringListIterNext(&it)) != NULL) {
+        size_t label_size = strlen(label);
+        size_t needed = !first ? label_size + 1 : label_size;
+        if(needed > pos) {
+            return 0;
+        }
+
+        if(first == 0) {
+            buff[--pos] = '.';
+        }
+        pos -= label_size;
+        for(size_t i = 0; i < label_size; i++){
+            buff[pos + i] = tolower(label[i]);
+        }
+        if(hashTableContains(block_list, buff + pos)) {
+            return 1;
+        }
+        first = 0;
+    }
+    return 0;
+}

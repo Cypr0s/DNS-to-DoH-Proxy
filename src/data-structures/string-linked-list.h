@@ -34,19 +34,19 @@ typedef struct {
  * 
  * @param list  Target list
  */
-void stringListInit(StringListPtr list);
+void stringListCtor(StringListPtr list);
 
 ExitStatus stringListInsert(StringListPtr list, char* data);
 
 void stringListPop(StringListPtr list);
 
-void stringListDestroy(StringListPtr list);
+void stringListDtor(StringListPtr list);
 
-void stringListIterInit(StringListIteratorPtr it, StringListPtr list);
+void stringListIterCtor(StringListIteratorPtr it, StringListPtr list);
 
 char* stringListIterNext(StringListIteratorPtr it);
 
-void stringListDestroyFree(StringListPtr list);
+void stringListDtorFree(StringListPtr list);
 
 void stringListReverse(StringListPtr list);
 

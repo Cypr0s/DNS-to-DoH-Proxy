@@ -16,7 +16,9 @@
 #include <stdint.h>
 #include <strings.h>
 #include <string.h>
-
+#include "data-structures/string-linked-list.h"
+#include "common.h"
+#include <ctype.h>
 
 typedef enum {
     ITEM_STATE_EMPTY,
@@ -65,6 +67,9 @@ ExitStatus hashTableInsert(HashTablePtr table, const char* key);
  * @return      1 if table contains it, 0 otherwise
  */
 uint8_t hashTableContains(HashTablePtr table, const char* key);
+
+
+uint8_t isBlocked(HashTablePtr block_list, StringListPtr labels);
 
 
 #endif // BLOCK_LIST_TREE_H

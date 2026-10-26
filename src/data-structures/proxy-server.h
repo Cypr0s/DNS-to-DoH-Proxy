@@ -16,9 +16,9 @@
 #include "server/forward.h"
 #include "server/dns.h"
 #include "server/socket.h"
+#include "server/forward.h"
 
-
-typedef struct {
+typedef struct proxy_server {
     ConnectionVector connections;   // poll connections
     HashTable block_list;  // block list check
     ZoneFileListTreePtr zone_file_root; // zone files check

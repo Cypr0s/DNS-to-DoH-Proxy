@@ -7,7 +7,8 @@
  */
 
 #include "data-structures/zone-file-tree.h"
-// coments from here
+
+
 ZoneFileListTreePtr zoneFileTreeFindNode(ZoneFileListTreePtr node, char* val) {
     if(node == NULL) {
         return NULL;
@@ -22,6 +23,7 @@ ZoneFileListTreePtr zoneFileTreeFindNode(ZoneFileListTreePtr node, char* val) {
     return NULL;
 }
 
+
 ZoneFileListTreePtr zoneFileTreeCreateNode(char* val) {
     ZoneFileListTreePtr node = (ZoneFileListTreePtr) malloc(sizeof(ZoneFileListTree));
 
@@ -30,7 +32,7 @@ ZoneFileListTreePtr zoneFileTreeCreateNode(char* val) {
     }
 
     node->value = val;
-    zoneListInit(&(node->list));
+    zoneListCtor(&(node->list));
     node->child_count = 0;
     node->children = NULL;
     node->full_domain_name = NULL;
@@ -38,6 +40,7 @@ ZoneFileListTreePtr zoneFileTreeCreateNode(char* val) {
     node->is_apex = 0;
     return node;
 }
+
 
 
 ExitStatus zoneFileTreeAddChild(ZoneFileListTreePtr parent, ZoneFileListTreePtr child) {
@@ -48,6 +51,7 @@ ExitStatus zoneFileTreeAddChild(ZoneFileListTreePtr parent, ZoneFileListTreePtr 
     ZoneFileListTreePtr* new_children = realloc(parent->children, sizeof(ZoneFileListTreePtr) * (parent->child_count + 1));
 
     if(new_children == NULL) {
+        PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
 
@@ -78,15 +82,16 @@ void zoneFileTreeDelete(ZoneFileListTreePtr node) {
         free(node->full_domain_name);
     }
 
-    zoneListDestroy(&(node->list));
+    zoneListDtor(&(node->list));
     free(node);
 }
+
 
 uint8_t isInZone(ZoneFileListTreePtr root, StringListPtr labels, ZoneFileListTreePtr* zone, ZoneFileListTreePtr* name) {
     *zone = NULL; // reset zone, very nice bugs <3
     ZoneFileListTreePtr node = root;
     StringListIterator it;
-    stringListIterInit(&it, labels);
+    stringListIterCtor(&it, labels);
 
     char* label;
     while((label = stringListIterNext(&it)) != NULL) {

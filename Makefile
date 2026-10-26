@@ -8,13 +8,13 @@ SRC := $(shell find src -name '*.c')
 OBJ = $(SRC:.c=.o)
 TARGET = isa-dnsproxy
 ZIP_NAME = xluptak00
-TEST_SCRIPT = placeholder
+TEST_SCRIPT = test.sh
 DEVSHELL = c
 
 .PHONY: all test clean NixDevShellName zip debug
 
 # default build
-all: clean $(TARGET)
+all: $(TARGET)
 
 $(TARGET): $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) -o $(TARGET)

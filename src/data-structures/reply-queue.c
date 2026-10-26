@@ -17,7 +17,7 @@ void tcpReplyQueueCtor(TCPReplyQueuePtr queue) {
 
 ExitStatus tcpReplyQueuePush(TCPReplyQueuePtr queue, char* reply, size_t reply_size, char* log) {
     if(queue == NULL) {
-        return;
+        return EXIT_FAILURE;
     }
     // new reply
     TCPReply* new_reply = malloc(sizeof(TCPReply));

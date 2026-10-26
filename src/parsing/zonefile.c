@@ -1,123 +1,243 @@
+/**
+ * @file    zonefile.c
+ * @author  Kristian Luptak
+ * @brief   Contains parsing of zone files
+ *          
+ * @date    2026-10-23
+ */
+
 #include "parsing/zonefile.h"
 
 
 // https://www.iana.org/assignments/dns-parameters (Resource Record (RR) TYPEs), updated 2026-08-28, filled with AI (claude)
 static ZoneTypeString zone_types[] = {
-    // supported
     {"A", ENTRY_A},
-    {"AAAA", ENTRY_AAAA},
     {"NS", ENTRY_NS},
-    {"SOA", ENTRY_SOA},
+    {"MD", ENTRY_MD},
+    {"MF", ENTRY_MF},
     {"CNAME", ENTRY_CNAME},
+    {"SOA", ENTRY_SOA},
+    {"MB", ENTRY_MB},
+    {"MG", ENTRY_MG},
+    {"MR", ENTRY_MR},
+    {"NULL", ENTRY_NULL},
+    {"WKS", ENTRY_WKS},
+    {"PTR", ENTRY_PTR},
+    {"HINFO", ENTRY_HINFO},
+    {"MINFO", ENTRY_MINFO},
     {"MX", ENTRY_MX},
+    {"TXT", ENTRY_TXT},
+    {"RP", ENTRY_RP},
+    {"AFSDB", ENTRY_AFSDB},
+    {"X25", ENTRY_X25},
+    {"ISDN", ENTRY_ISDN},
+    {"RT", ENTRY_RT},
+    {"NSAP", ENTRY_NSAP},
+    {"NSAP-PTR", ENTRY_NSAP_PTR},
+    {"SIG", ENTRY_SIG},
+    {"KEY", ENTRY_KEY},
+    {"PX", ENTRY_PX},
+    {"GPOS", ENTRY_GPOS},
+    {"AAAA", ENTRY_AAAA},
+    {"LOC", ENTRY_LOC},
+    {"NXT", ENTRY_NXT},
+    {"EID", ENTRY_EID},
+    {"NIMLOC", ENTRY_NIMLOC},
+    {"SRV", ENTRY_SRV},
+    {"ATMA", ENTRY_ATMA},
+    {"NAPTR", ENTRY_NAPTR},
+    {"KX", ENTRY_KX},
+    {"CERT", ENTRY_CERT},
+    {"A6", ENTRY_A6},
+    {"DNAME", ENTRY_DNAME},
+    {"SINK", ENTRY_SINK},
+    {"OPT", ENTRY_OPT},
+    {"APL", ENTRY_APL},
+    {"DS", ENTRY_DS},
+    {"SSHFP", ENTRY_SSHFP},
+    {"IPSECKEY", ENTRY_IPSECKEY},
+    {"RRSIG", ENTRY_RRSIG},
+    {"NSEC", ENTRY_NSEC},
+    {"DNSKEY", ENTRY_DNSKEY},
+    {"DHCID", ENTRY_DHCID},
+    {"NSEC3", ENTRY_NSEC3},
+    {"NSEC3PARAM", ENTRY_NSEC3PARAM},
+    {"TLSA", ENTRY_TLSA},
+    {"SMIMEA", ENTRY_SMIMEA},
+    {"DELEGPARAM", ENTRY_DELEGPARAM},
+    {"HIP", ENTRY_HIP},
+    {"NINFO", ENTRY_NINFO},
+    {"RKEY", ENTRY_RKEY},
+    {"TALINK", ENTRY_TALINK},
+    {"CDS", ENTRY_CDS},
+    {"CDNSKEY", ENTRY_CDNSKEY},
+    {"OPENPGPKEY", ENTRY_OPENPGPKEY},
+    {"CSYNC", ENTRY_CSYNC},
+    {"ZONEMD", ENTRY_ZONEMD},
+    {"SVCB", ENTRY_SVCB},
+    {"HTTPS", ENTRY_HTTPS},
+    {"DSYNC", ENTRY_DSYNC},
+    {"HHIT", ENTRY_HHIT},
+    {"BRID", ENTRY_BRID},
+    {"UNECE", ENTRY_UNECE},
+    {"ISO", ENTRY_ISO},
+    {"SPF", ENTRY_SPF},
+    {"UINFO", ENTRY_UINFO},
+    {"UID", ENTRY_UID},
+    {"GID", ENTRY_GID},
+    {"UNSPEC", ENTRY_UNSPEC},
+    {"NID", ENTRY_NID},
+    {"L32", ENTRY_L32},
+    {"L64", ENTRY_L64},
+    {"LP", ENTRY_LP},
+    {"EUI48", ENTRY_EUI48},
+    {"EUI64", ENTRY_EUI64},
+    {"NXNAME", ENTRY_NXNAME},
+    {"TKEY", ENTRY_TKEY},
+    {"TSIG", ENTRY_TSIG},
+    {"IXFR", ENTRY_IXFR},
+    {"AXFR", ENTRY_AXFR},
+    {"MAILB", ENTRY_MAILB},
+    {"MAILA", ENTRY_MAILA},
     {"ANY", ENTRY_ANY},
-    // registered by IANA but not supported: valid, parse and skip with a warning
-    {"MD", ENTRY_VALID},
-    {"MF", ENTRY_VALID},
-    {"MB", ENTRY_VALID},
-    {"MG", ENTRY_VALID},
-    {"MR", ENTRY_VALID},
-    {"NULL", ENTRY_VALID},
-    {"WKS", ENTRY_VALID},
-    {"PTR", ENTRY_VALID},
-    {"HINFO", ENTRY_VALID},
-    {"MINFO", ENTRY_VALID},
-    {"TXT", ENTRY_VALID},
-    {"RP", ENTRY_VALID},
-    {"AFSDB", ENTRY_VALID},
-    {"X25", ENTRY_VALID},
-    {"ISDN", ENTRY_VALID},
-    {"RT", ENTRY_VALID},
-    {"NSAP", ENTRY_VALID},
-    {"NSAP-PTR", ENTRY_VALID},
-    {"SIG", ENTRY_VALID},
-    {"KEY", ENTRY_VALID},
-    {"PX", ENTRY_VALID},
-    {"GPOS", ENTRY_VALID},
-    {"LOC", ENTRY_VALID},
-    {"NXT", ENTRY_VALID},
-    {"EID", ENTRY_VALID},
-    {"NIMLOC", ENTRY_VALID},
-    {"SRV", ENTRY_VALID},
-    {"ATMA", ENTRY_VALID},
-    {"NAPTR", ENTRY_VALID},
-    {"KX", ENTRY_VALID},
-    {"CERT", ENTRY_VALID},
-    {"A6", ENTRY_VALID},
-    {"DNAME", ENTRY_VALID},
-    {"SINK", ENTRY_VALID},
-    {"OPT", ENTRY_VALID},
-    {"APL", ENTRY_VALID},
-    {"DS", ENTRY_VALID},
-    {"SSHFP", ENTRY_VALID},
-    {"IPSECKEY", ENTRY_VALID},
-    {"RRSIG", ENTRY_VALID},
-    {"NSEC", ENTRY_VALID},
-    {"DNSKEY", ENTRY_VALID},
-    {"DHCID", ENTRY_VALID},
-    {"NSEC3", ENTRY_VALID},
-    {"NSEC3PARAM", ENTRY_VALID},
-    {"TLSA", ENTRY_VALID},
-    {"SMIMEA", ENTRY_VALID},
-    {"HIP", ENTRY_VALID},
-    {"NINFO", ENTRY_VALID},
-    {"RKEY", ENTRY_VALID}, 
-    {"TALINK", ENTRY_VALID},
-    {"CDS", ENTRY_VALID},
-    {"CDNSKEY", ENTRY_VALID},
-    {"OPENPGPKEY", ENTRY_VALID},
-    {"CSYNC", ENTRY_VALID},
-    {"ZONEMD", ENTRY_VALID},
-    {"SVCB", ENTRY_VALID},
-    {"HTTPS", ENTRY_VALID},
-    {"DSYNC", ENTRY_VALID},
-    {"HHIT", ENTRY_VALID},
-    {"BRID", ENTRY_VALID},
-    {"UNECE", ENTRY_VALID},
-    {"ISO", ENTRY_VALID},
-    {"SPF", ENTRY_VALID},
-    {"UINFO", ENTRY_VALID},
-    {"UID", ENTRY_VALID},
-    {"GID", ENTRY_VALID},
-    {"UNSPEC", ENTRY_VALID},
-    {"NID", ENTRY_VALID},
-    {"L32", ENTRY_VALID},
-    {"L64", ENTRY_VALID},
-    {"LP", ENTRY_VALID},
-    {"EUI48", ENTRY_VALID},
-    {"EUI64", ENTRY_VALID},
-    {"NXNAME", ENTRY_VALID},
-    {"TKEY", ENTRY_VALID},
-    {"TSIG", ENTRY_VALID},
-    {"IXFR", ENTRY_VALID},
-    {"AXFR", ENTRY_VALID},
-    {"MAILB", ENTRY_VALID},
-    {"MAILA", ENTRY_VALID},
-    {"URI", ENTRY_VALID},
-    {"CAA", ENTRY_VALID},
-    {"AVC", ENTRY_VALID},
-    {"DOA", ENTRY_VALID},
-    {"AMTRELAY", ENTRY_VALID},
-    {"RESINFO", ENTRY_VALID},
-    {"WALLET", ENTRY_VALID},
-    {"CLA", ENTRY_VALID},
-    {"IPN", ENTRY_VALID},
-    {"TA", ENTRY_VALID},
-    {"DLV", ENTRY_VALID},
+    {"URI", ENTRY_URI},
+    {"CAA", ENTRY_CAA},
+    {"AVC", ENTRY_AVC},
+    {"DOA", ENTRY_DOA},
+    {"AMTRELAY", ENTRY_AMTRELAY},
+    {"RESINFO", ENTRY_RESINFO},
+    {"WALLET", ENTRY_WALLET},
+    {"CLA", ENTRY_CLA},
+    {"IPN", ENTRY_IPN},
+    {"TA", ENTRY_TA},
+    {"DLV", ENTRY_DLV},
+    {"DELEG", ENTRY_DELEG},
 };
-
+/**
+ * @brief           Converts domain name to wire format
+ * 
+ * @param owner     Absolute domain name
+ * @param out       Output bytes
+ * @param out_size  Output size
+ * @return          ExitStatus 
+ */
 static ExitStatus domainToBytes(char* owner, char** out, size_t* out_size);
+
+/**
+ * @brief           Splits domain name into labels
+ * 
+ * @param owner     Domain name
+ * @param list      Output label list
+ * @return          ExitStatus 
+ */
 static ExitStatus domainToStringList(char* owner, StringListPtr list);
+
+/**
+ * @brief           Validates domain name and makes it absolute
+ * 
+ * @param token     Domain name
+ * @param origin    Zone origin
+ * @param out       Output absolute name
+ * @param ctx       File context for errors
+ * @return          ExitStatus 
+ */
 static ExitStatus checkAndCreateDomainStr(char* token, char* origin, char** out, DNSFileContextPtr ctx);
+
+/**
+ * @brief           Appends origin to relative domain name
+ * 
+ * @param name      Relative domain name
+ * @param origin    Zone origin
+ * @param resolved  Output absolute name
+ * @return          ExitStatus 
+ */
 static ExitStatus resolveDomainName(char* name, char* origin, char** resolved);
+
+/**
+ * @brief           Checks if name belongs to origin zone
+ * 
+ * @param name      Absolute domain name
+ * @param origin    Zone origin
+ * @param ctx       File context for errors
+ * @return          ExitStatus 
+ */
 static ExitStatus isInOrigin(char* name, char* origin, DNSFileContextPtr ctx);
+/**
+ * @brief       Parses $ORIGIN
+ * 
+ * @param it    Token iterator
+ * @param ctx   Zone file context
+ * @return      ExitStatus 
+ */
 static ExitStatus parseOrigin(StringListIteratorPtr it, ZoneFileListCtxPtr ctx);
+
+/**
+ * @brief       Parses $TTL
+ * 
+ * @param it    Token iterator
+ * @param ctx   Zone file context
+ * @return      ExitStatus 
+ */
 static ExitStatus parseTTL(StringListIteratorPtr it, ZoneFileListCtxPtr ctx);
+
+/**
+ * @brief               Parses resource record line
+ * 
+ * @param it            Token iterator
+ * @param ctx           Zone file context
+ * @param zone_entry    Output zone entry
+ * @return              ExitStatus 
+ */
 static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, ZoneEntryPtr zone_entry);
+
+/**
+ * @brief               Parses one zone file line
+ * 
+ * @param list          Line tokens
+ * @param ctx           Zone file context
+ * @param zone_entry    Output zone entry
+ * @return              ExitStatus 
+ */
+
+
 static ExitStatus createEntry(StringListPtr list, ZoneFileListCtxPtr ctx, ZoneEntryPtr zone_entry);
+
+/**
+ * @brief       Inserts entry into zone tree
+ * 
+ * @param owner Absolute owner name
+ * @param entry Zone entry
+ * @param root  Zone tree root
+ * @param ctx   File context for errors
+ * @return      ExitStatus 
+ */
 static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreePtr root, DNSFileContextPtr ctx);
+
+/**
+ * @brief           Splits line into tokens
+ * 
+ * @param line_str  Input line
+ * @param list      Output token list
+ * @return          ExitStatus 
+ */
+
 static ExitStatus tokenizeLine(char* line_str, StringListPtr list);
+
+/**
+ * @brief       Parses zone file
+ * 
+ * @param fp    Opened file
+ * @param root  Zone tree root
+ * @param ctx   Zone file context
+ * @return      ExitStatus 
+ */
 static ExitStatus parseFile(FILE* fp, ZoneFileListTreePtr root, ZoneFileListCtxPtr ctx);
+
+/**
+ * @brief       Frees zone file context
+ * 
+ * @param ctx   Zone file context
+ */
 static void destroyZoneFileCtx(ZoneFileListCtxPtr ctx);
 
 
@@ -126,6 +246,7 @@ static ExitStatus domainToBytes(char* owner, char** out, size_t* out_size) {
 
     char* bytes = malloc(owner_size + 1);
     if(bytes == NULL) {
+        PRINT_ERROR("Memory allocation failure");
         return STATUS_MALLOC_FAILURE;
     }
 
@@ -133,7 +254,7 @@ static ExitStatus domainToBytes(char* owner, char** out, size_t* out_size) {
     size_t label_start = 0;
 
     for(size_t i = 0; i < owner_size; i++) {
-        if(owner[i] != '.') {
+        if(owner[i] != '.') { // skip dots 
             continue;
         }
         size_t label_len = i - label_start;
@@ -165,14 +286,14 @@ static ExitStatus domainToStringList(char* owner, StringListPtr list) {
             char* label = strdup(label_start);
             if(label == NULL) {
                 PRINT_ERROR("Memory allocation failure");
-                stringListDestroyFree(list);
+                stringListDtorFree(list);
                 return STATUS_MALLOC_FAILURE;
             }
 
             ExitStatus e = stringListInsert(list, label);
             if(e != STATUS_SUCCESS) {
                 free(label);
-                stringListDestroyFree(list);
+                stringListDtorFree(list);
                 return e;
             }
 
@@ -188,12 +309,21 @@ static ExitStatus domainToStringList(char* owner, StringListPtr list) {
 
 
 static ExitStatus checkAndCreateDomainStr(char* token, char* origin, char** out, DNSFileContextPtr ctx) {
+    if(!strcmp(token, "@")) {
+        *out = strdup(origin);
+        if(*out == NULL) {
+            PRINT_ERROR("Memory Allocation failure");
+            return STATUS_MALLOC_FAILURE;
+        }
+        return STATUS_SUCCESS;
+    }
+
     if(!isValidDomainName(token)) {
         PRINT_FILELIST_PARSE_ERROR(ctx->filename, ctx->line, "Invalid character in domain name");
         return STATUS_EX_CONFIG;
     }
 
-    size_t token_size =strlen(token);
+    size_t token_size = strlen(token);
     if(token[token_size - 1] == '.') {
         *out = strdup(token);
         if(*out == NULL) {
@@ -211,7 +341,7 @@ static ExitStatus resolveDomainName(char* name, char* origin, char** resolved) {
     size_t name_len = strlen(name);
     size_t origin_len = strlen(origin);
 
-    if(!strcmp(origin, ".")) {
+    if(!strcasecmp(origin, ".")) {
         *resolved =(char*) malloc(name_len + 2);
 
         if(*resolved == NULL) {
@@ -240,7 +370,7 @@ static ExitStatus resolveDomainName(char* name, char* origin, char** resolved) {
 
 
 static ExitStatus isInOrigin(char* name, char* origin, DNSFileContextPtr ctx) {
-    if(!strcmp(origin, ".")) {
+    if(!strcasecmp(origin, ".")) {
         return STATUS_SUCCESS;
     }
 
@@ -252,7 +382,7 @@ static ExitStatus isInOrigin(char* name, char* origin, DNSFileContextPtr ctx) {
         return STATUS_EX_CONFIG;
     }
 
-    if(strcmp(name + name_size - origin_size, origin)) {
+    if(strcasecmp(name + name_size - origin_size, origin)) {
         PRINT_FILELIST_PARSE_ERROR(ctx->filename, ctx->line, "Name outside origin zone");
         return STATUS_EX_CONFIG;
     }
@@ -332,7 +462,7 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
         }
         owner = ctx->current_owner;
     } else {
-        if(!strcmp(token, "@")) {
+        if(!strcasecmp(token, "@")) {
             if(ctx->origin == NULL) {
                 PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Missing origin");
                 return STATUS_EX_CONFIG;
@@ -389,9 +519,8 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
     switch(zone_entry->entry_type) {
         case ENTRY_INVALID:
         case ENTRY_ANY:
+            PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Unsupported entry type");
             return STATUS_EX_CONFIG;
-        case ENTRY_VALID:
-            break;
         case ENTRY_A: {
             if(ctx->origin == NULL) {
                 PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Missing origin");
@@ -445,10 +574,11 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &cname, &ctx->dns_context);
             CHECK_ERR(e);
             e = domainToStringList(cname, &zone_entry->entry.cname_entry.list);
-            CHECK_ERR(e);
+            CHECK_ERR_AND_FREE(e, free(cname););
             e = domainToBytes(cname, &zone_entry->entry.cname_entry.cname, &zone_entry->entry.cname_entry.cname_size);
             zone_entry->rdata_size = zone_entry->entry.cname_entry.cname_size;
-            CHECK_ERR(e);
+            CHECK_ERR_AND_FREE(e, free(cname););
+            free(cname);
             break;
         }
         case ENTRY_MX: {
@@ -472,8 +602,9 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &exchange, &ctx->dns_context);
             CHECK_ERR(e);
             e = domainToBytes(exchange, &zone_entry->entry.mx_entry.exchange, &zone_entry->entry.mx_entry.exchange_size);
-            CHECK_ERR(e);
+            CHECK_ERR_AND_FREE(e, free(exchange););
             zone_entry->rdata_size = zone_entry->entry.mx_entry.exchange_size + 2;
+            free(exchange);
             break;
         }
         case ENTRY_NS: {
@@ -490,8 +621,9 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &nsdname, &ctx->dns_context);
             CHECK_ERR(e);
             e = domainToBytes(nsdname, &zone_entry->entry.ns_entry.nsdname, &zone_entry->entry.ns_entry.nsdname_size);
-            CHECK_ERR(e);
+            CHECK_ERR_AND_FREE(e, free(nsdname););
             zone_entry->rdata_size = zone_entry->entry.ns_entry.nsdname_size;
+            free(nsdname);
             break;
         }
         case ENTRY_SOA: {
@@ -516,8 +648,8 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
                     return STATUS_MALLOC_FAILURE;
                 }
             } else {
-                if(strcmp(owner, ctx->origin)) {
-                     PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "SOA owner is not origin");
+                if(strcasecmp(owner, ctx->origin)) {
+                    PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "SOA owner is not origin");
                     return STATUS_EX_CONFIG;
                 }
             }
@@ -529,8 +661,8 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             ExitStatus e = checkAndCreateDomainStr(token, ctx->origin, &mname, &ctx->dns_context);
             CHECK_ERR(e);
             e = domainToBytes(mname, &zone_entry->entry.soa_entry.mname, &zone_entry->entry.soa_entry.mname_size);
-            CHECK_ERR(e);
-
+            CHECK_ERR_AND_FREE(e, free(mname););
+            free(mname);
             // rname
             char* rname;
             token = stringListIterNext(it);
@@ -541,8 +673,8 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             e = checkAndCreateDomainStr(token, ctx->origin, &rname, &ctx->dns_context);
             CHECK_ERR(e);
             e = domainToBytes(rname, &zone_entry->entry.soa_entry.rname, &zone_entry->entry.soa_entry.rname_size);
-            CHECK_ERR(e);
-            
+            CHECK_ERR_AND_FREE(e, free(rname););
+            free(rname);
             // serial
             token = stringListIterNext(it);
             if(token == NULL) {
@@ -607,6 +739,8 @@ static ExitStatus parseRecord(StringListIteratorPtr it, ZoneFileListCtxPtr ctx, 
             zone_entry->rdata_size = zone_entry->entry.soa_entry.mname_size + zone_entry->entry.soa_entry.rname_size + 20;
             break;
         }
+        default:
+            break;
     }
 
 
@@ -634,9 +768,9 @@ static ExitStatus createEntry(StringListPtr list, ZoneFileListCtxPtr ctx, ZoneEn
     stringListReverse(list);
 
     StringListIterator it; 
-    stringListIterInit(&it, list);
+    stringListIterCtor(&it, list);
     char* token = stringListIterNext(&it);
-    if (token == NULL) {
+    if(token == NULL) {
         return STATUS_SUCCESS;
     }
     if(!strcasecmp(token, "$ORIGIN")) {
@@ -645,19 +779,19 @@ static ExitStatus createEntry(StringListPtr list, ZoneFileListCtxPtr ctx, ZoneEn
         return parseTTL(&it, ctx);
         
     }
-    stringListIterInit(&it, list);
+    stringListIterCtor(&it, list);
     return parseRecord(&it, ctx, zone_entry);
 }
 
 static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreePtr root, DNSFileContextPtr ctx) {
     StringList list;
-    stringListInit(&list);
+    stringListCtor(&list);
     // create token labels(owner is already checked)
     ExitStatus e = domainToStringList(owner, &list);
-    CHECK_ERR_AND_FREE(e, stringListDestroyFree(&list););
+    CHECK_ERR_AND_FREE(e, stringListDtorFree(&list););
 
     StringListIterator it;
-    stringListIterInit(&it, &list);
+    stringListIterCtor(&it, &list);
     char* val;
     ZoneFileListTreePtr tmp = root;
     while((val = stringListIterNext(&it)) != NULL) {
@@ -667,23 +801,23 @@ static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreeP
             char* label = strdup(val);
             if(label == NULL) {
                 PRINT_ERROR("Memory allocation failure");
-                stringListDestroyFree(&list);
+                stringListDtorFree(&list);
                 return STATUS_MALLOC_FAILURE;
             }
             child = zoneFileTreeCreateNode(label);
             if(child == NULL) {
                 free(label);
                 PRINT_ERROR("Memory allocation failure");
-                stringListDestroyFree(&list);
+                stringListDtorFree(&list);
                 return STATUS_MALLOC_FAILURE;
             }
             e = zoneFileTreeAddChild(tmp, child);
-            CHECK_ERR_AND_FREE(e, zoneFileTreeDelete(child);PRINT_ERROR("Memory allocation failure");stringListDestroyFree(&list););
+            CHECK_ERR_AND_FREE(e, zoneFileTreeDelete(child);PRINT_ERROR("Memory allocation failure");stringListDtorFree(&list););
         }
 
         tmp = child;
     }
-    stringListDestroyFree(&list);
+    stringListDtorFree(&list);
 
     if(entry->entry_type == ENTRY_SOA) {
         tmp->is_apex = 1;
@@ -703,7 +837,7 @@ static ExitStatus insertEntry(char* owner, ZoneEntryPtr entry, ZoneFileListTreeP
     
     // ttl check and cname check
     ZoneListIterator zone_entry_it;
-    zoneListIterInit(&zone_entry_it, zone_entry_list);
+    zoneListIterCtor(&zone_entry_it, zone_entry_list);
     ZoneEntryPtr list_entry;
     while((list_entry = (zoneListIterNext(&zone_entry_it))) != NULL) {
         if(list_entry->entry_type == entry->entry_type && list_entry->ttl != entry->ttl) {
@@ -757,19 +891,19 @@ static ExitStatus parseFile(FILE* fp, ZoneFileListTreePtr root, ZoneFileListCtxP
         }
         removeComment(line_str, ';');
         StringList list;
-        stringListInit(&list);
+        stringListCtor(&list);
 
         ExitStatus e = tokenizeLine(line_str, &list);
-        CHECK_ERR_AND_FREE(e, stringListDestroyFree(&list););
+        CHECK_ERR_AND_FREE(e, stringListDtorFree(&list); free(line_str););
 
         ZoneEntry entry = {0};
         e = createEntry(&list, ctx, &entry);
-        CHECK_ERR_AND_FREE(e, stringListDestroyFree(&list););
+        CHECK_ERR_AND_FREE(e, stringListDtorFree(&list); free(line_str););
         if(ctx->flags & ZONEFILE_IS_RECORD) {
             e = insertEntry(ctx->current_owner, &entry, root, &ctx->dns_context);
         }
-        stringListDestroyFree(&list);
-        CHECK_ERR(e);
+        stringListDtorFree(&list);
+        CHECK_ERR_AND_FREE(e, free(line_str););
         ctx->flags &= ~ZONEFILE_LEADING_WHITESPACE;
         ctx->flags &= ~ZONEFILE_IS_RECORD;
     }
@@ -784,7 +918,7 @@ static ExitStatus parseFile(FILE* fp, ZoneFileListTreePtr root, ZoneFileListCtxP
 
 ExitStatus parseZoneList(StringListPtr zone_list, ZoneFileListTreePtr root) {
     StringListIterator it;
-    stringListIterInit(&it, zone_list);
+    stringListIterCtor(&it, zone_list);
     char* filename = stringListIterNext(&it);
     FILE* fp;
     while(filename != NULL) {
@@ -818,4 +952,17 @@ static void destroyZoneFileCtx(ZoneFileListCtxPtr ctx) {
     if(ctx->origin != NULL) {
         free(ctx->origin);
     }
+}
+
+char* getZoneTypeName(uint16_t qtype) {
+    for(size_t i = 0; i < ARRAY_SIZE(zone_types); i++) {
+        if(zone_types[i].value == qtype) {
+            return (char*)zone_types[i].name;
+        }
+    }
+    return NULL;
+}
+
+uint8_t isSupportedQType(uint16_t qtype) {
+    return qtype == ENTRY_A || qtype == ENTRY_AAAA || qtype == ENTRY_MX || qtype == ENTRY_NS || qtype == ENTRY_SOA || qtype == ENTRY_CNAME || qtype == ENTRY_ANY;
 }

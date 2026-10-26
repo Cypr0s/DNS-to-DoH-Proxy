@@ -1,3 +1,11 @@
+/**
+ * @file    argument.c
+ * @author  Kristian Luptak
+ * @brief   Contains parsing of program arguments
+ *          
+ * @date    2026-10-23
+ */
+
 #include "parsing/argument.h"
 
 static Arg arguments[] = {
@@ -12,29 +20,51 @@ static Arg arguments[] = {
     {"--help", ARG_HELP, false, false}
 };
 
+/**
+ * @brief               Set argument in parsed arg to value 'arg' based on flag       
+ * 
+ * @param flag          Input flag      
+ * @param arg           Flag value
+ * @param parsed_args   Struct in which the arg gets stored
+ * @return              SUCCES | FAILURE
+ */
 static ExitStatus setValue(ArgFlagsEnum flag, char* arg, ParsedArgsPtr parsed_args);
+
+/**
+ * @brief           Finds corresponding argument flag based on the flag
+ * 
+ * @param argv      Argument based on which it finds corect arg
+ * @return          Ouput argument ptr
+ */
 static inline ArgPtr getArgument(char* argv);
 
 
 void parsedArgsCtor(ParsedArgsPtr parsed_args) {
     parsed_args->port = ARGUMENT_DEFAULT_PORT;
     parsed_args->timeout_time = ARGUMENT_DEFAULT_TIMEOUT;
-    stringListInit(&parsed_args->block_lists);
-    stringListInit(&parsed_args->zone_files);
+    stringListCtor(&parsed_args->block_lists);
+    stringListCtor(&parsed_args->zone_files);
 }
 
 
 void parsedArgsDtor(ParsedArgsPtr parsed_args) {
-    stringListDestroy(&parsed_args->block_lists);
-    stringListDestroy(&parsed_args->zone_files);
+    stringListDtor(&parsed_args->block_lists);
+    stringListDtor(&parsed_args->zone_files);
 }
 
-
-ExitStatus parseArguments(int argc, char**argv, ParsedArgsPtr parsed_args) {
-    if(argc < 2 ) {
+/**
+ * @brief               parsed all arguments into parsedArgs struct
+ * 
+ * @param argc          Input argument cnt
+ * @param argv          char** input args
+ * @param parsed_args   Output parsed arguments
+ * @return ExitStatus  SUCCESS | USAGE
+ */
+ExitStatus parseArguments(int argc, char** argv, ParsedArgsPtr parsed_args) {
+    if(argc < 2) {
         return STATUS_EX_USAGE;
     }
-
+    // loop through args, get arg, 
     for(int i = 1; i < argc; i++) {
         ArgPtr arg = getArgument(argv[i]);
         if(arg == NULL) {

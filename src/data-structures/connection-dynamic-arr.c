@@ -84,7 +84,7 @@ ExitStatus connectionVectorDelete(ConnectionVectorPtr vector, int fd) {
     }
     // destroy whole connection
     close(vector->poll_fds[i].fd);
-    tcpReplyQueueClean(&vector->connections[i].reply_queue);
+    tcpReplyQueueDtor(&vector->connections[i].reply_queue);
     if(i != vector->curr_size - 1) {
         vector->poll_fds[i] = vector->poll_fds[vector->curr_size - 1];
         vector->connections[i] = vector->connections[vector->curr_size - 1];
@@ -121,7 +121,7 @@ void connectionVectorDtor(ConnectionVectorPtr vector) {
     if(vector != NULL && vector->connections != NULL && vector->poll_fds != NULL) {
         for(size_t i = 0; i < vector->curr_size; i++) {
             close(vector->poll_fds[i].fd);
-            tcpReplyQueueClean(&vector->connections[i].reply_queue);
+            tcpReplyQueueDtor(&vector->connections[i].reply_queue);
         }
         free(vector->poll_fds);
         free(vector->connections);

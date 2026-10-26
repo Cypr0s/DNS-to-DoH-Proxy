@@ -1,10 +1,69 @@
+/**
+ * @file    dns.c
+ * @author  Kristian Luptak
+ * @brief   Contains functions which work with dns queries like parsing and constructing replies
+ *          
+ * @date    2026-10-23
+ */
+
 #include "server/dns.h"
 
-static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* current_position, DNSStatePtr dns_state);
+
+/**
+ * @brief               Parses DNS header
+ * 
+ * @param bytes         Input bytes
+ * @param query_header  Output header
+ */
 static void parseDNSHeader(char* bytes, DNSHeaderPtr query_header);
+
+
+/**
+ * @brief                   Parses question section
+ * 
+ * @param bytes             Input bytes
+ * @param size              Input size
+ * @param query_question    Output question
+ * @param current_position  Current position in bytes
+ * @return                  ExitStatus 
+ */
 static ExitStatus parseDNSQuestion(char* bytes,size_t size, DNSQuestionPtr query_question, size_t* current_position);
+
+/**
+ * @brief                   Parses domain name labels
+ * 
+ * @param bytes             Input bytes
+ * @param size              Input size
+ * @param labels            Output label list, NULL to only skip
+ * @param current_position  Current position in bytes
+ * @return                  ExitStatus 
+ */
 static ExitStatus parseLabels(char* bytes, size_t size, StringListPtr labels, size_t* current_position);
+
+/**
+ * @brief                   Skips one resource record, detects OPT
+ * 
+ * @param bytes             Input bytes
+ * @param size              Input size
+ * @param current_position  Current position in bytes
+ * @param dns_flags         DNS flags to update
+ * @param opt_size          Output UDP size from OPT
+ * @return                  ExitStatus 
+ */
 static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, DNSFlagsPtr flags, uint16_t* opt_size);
+
+/**
+ * @brief                   Skips all resource records, validates OPT
+ * 
+ * @param bytes             Input bytes
+ * @param size              Input size
+ * @param current_position  Current position in bytes
+ * @param dns_state         DNS state to update
+ * @return                  ExitStatus 
+ */
+static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* current_position, DNSStatePtr dns_state);
+
+
 
 ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state) {
     // check 1: shorter than 12 octets → dropped;
@@ -66,6 +125,7 @@ ExitStatus parseDNSQuery(char* bytes, size_t size, DNSStatePtr dns_state) {
 }
 
 
+
 static void parseDNSHeader(char* bytes, DNSHeaderPtr query_header) {
     query_header->id = bytesToUShort(bytes + 0);
     query_header->flags = bytesToUShort(bytes + 2);
@@ -77,10 +137,10 @@ static void parseDNSHeader(char* bytes, DNSHeaderPtr query_header) {
 
 
 static ExitStatus parseDNSQuestion(char* bytes,size_t size, DNSQuestionPtr query_question, size_t* current_position) {
-    stringListInit(&(query_question->labels));
+    stringListCtor(&(query_question->labels));
     ExitStatus e = parseLabels(bytes, size, &(query_question->labels), current_position);
-    CHECK_ERR_AND_FREE(e, stringListDestroyFree(&(query_question->labels)););
-    if (*current_position + 4 > size) {
+    CHECK_ERR_AND_FREE(e, stringListDtorFree(&(query_question->labels)););
+    if(*current_position + 4 > size) {
         return STATUS_FAILURE;
     }
 
@@ -99,7 +159,7 @@ static ExitStatus parseDNSQuestion(char* bytes,size_t size, DNSQuestionPtr query
 static ExitStatus parseLabels(char* bytes, size_t size, StringListPtr labels, size_t* current_position) {
     size_t name_length = 0;
     while(1) {
-        if (*current_position >= size) {
+        if(*current_position >= size) {
             return STATUS_FAILURE;
         }
         uint8_t label_length = bytes[*current_position];
@@ -113,25 +173,25 @@ static ExitStatus parseLabels(char* bytes, size_t size, StringListPtr labels, si
             break;
         }
 
-        if (label_length > 191) {
-            if (labels != NULL || *current_position >= size) {
+        if(label_length > 191) {
+            if(labels != NULL || *current_position >= size) {
                 return STATUS_FAILURE;
             }
             (*current_position)++;
             return STATUS_SUCCESS;
         }
 
-        if (label_length > 63 || 
+        if(label_length > DNS_MAX_LABEL_LENGTH || 
             *current_position + label_length > size ||
-            name_length > DNS_MAX_TOKEN_LENGTH + 1
+            name_length > DNS_MAX_TOKEN_LENGTH
         ) {
             return STATUS_FAILURE;
         }
 
 
-        if (labels != NULL) {
+        if(labels != NULL) {
             char *label = malloc(label_length + 1);
-            if (label == NULL) {
+            if(label == NULL) {
                 return STATUS_MALLOC_FAILURE;
             }
 
@@ -158,7 +218,7 @@ static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, 
     }
 
     uint16_t type = bytesToUShort(bytes + *current_position);
-    if (type == OPT_TYPE_RECORD) { // OPT
+    if(type == OPT_TYPE_RECORD) { // OPT
         *dns_flags |= DNS_FLAG_OPT;
         if(start_position + 1 == *current_position) {
             *dns_flags |= DNS_FLAG_IS_ROOT;
@@ -173,7 +233,7 @@ static ExitStatus skipDNSRR(char* bytes, size_t size, size_t* current_position, 
     uint16_t rdlength = bytesToUShort(bytes + *current_position);
     *current_position += 2;
 
-    if (*current_position + rdlength > size) {
+    if(*current_position + rdlength > size) {
         return STATUS_FAILURE;
     }
     *current_position += rdlength;
@@ -202,10 +262,10 @@ static ExitStatus skipDNSResourceRecords(char* bytes, size_t size, size_t* curre
         dns_state->flags &= ~(DNS_FLAG_OPT | DNS_FLAG_IS_ROOT);
         ExitStatus e = skipDNSRR(bytes, size, current_position, &dns_state->flags, &dns_state->query.opt_size);
         CHECK_ERR(e);
-        if (dns_state->flags & DNS_FLAG_OPT) {
+        if(dns_state->flags & DNS_FLAG_OPT) {
             opt_cnt++;
 
-            if (opt_cnt > 1 || !(dns_state->flags & DNS_FLAG_IS_ROOT)) {
+            if(opt_cnt > 1 || !(dns_state->flags & DNS_FLAG_IS_ROOT)) {
                 return STATUS_FAILURE;
             }
         }
@@ -228,6 +288,8 @@ ExitStatus createDNSAnswer(DNSStatePtr dns_state) {
     // copy ID
     uShortToBytes(dns_state->query.header.id, dns_state->reply + dns_state->reply_current_size);
     dns_state->reply_current_size += 2;
+
+    // create flags
     uint16_t flags = QR | RA;
 
     flags |= dns_state->query.header.flags & OPCODE;
@@ -384,5 +446,5 @@ void truncateUDP(DNSStatePtr dns_state) {
 void dnsStateDtor(DNSStatePtr dns_state) {
     free(dns_state->reply);
     dns_state->reply = NULL;
-    stringListDestroyFree(&(dns_state->query.question.labels));
+    stringListDtorFree(&(dns_state->query.question.labels));
 }

@@ -1,10 +1,19 @@
+/**
+ * @file    string.c
+ * @author  Kristian Luptak
+ * @brief   Contains utility functions for working with strings
+ *          
+ * @date    2026-10-23
+ */
+
 #include "util/string.h"
+
 
 ssize_t convertStrToNum(const char* input, ssize_t min_boundary, ssize_t max_boundary) {
     char* end;
     errno = 0;
     ssize_t output = strtol(input, &end, 10);
-    if(end == input) {
+    if(end == input || *end != '\0') {
         return -1;
     }
 
@@ -14,12 +23,18 @@ ssize_t convertStrToNum(const char* input, ssize_t min_boundary, ssize_t max_bou
     return output;
 }
 
+
 uint16_t bytesToUShort(const char* input) {
     return (uint16_t)(((unsigned char)input[0] << 8) | (unsigned char)input[1]); 
 }
 
 uint32_t bytesToUint(const char* input) {
-    return (uint32_t)(((unsigned char)input[0] << 24) | ((unsigned char)input[1] << 16) | ((unsigned char)input[2] << 8) | (unsigned char)input[3]);
+    return (uint32_t)(
+              ((unsigned char)input[0] << 24) |
+              ((unsigned char)input[1] << 16) |
+              ((unsigned char)input[2] << 8) | 
+              (unsigned char)input[3]
+            );
 }
 
 void uShortToBytes(uint16_t value, char *output) {
@@ -69,7 +84,7 @@ uint8_t isValidDomainName(const char* name) {
         }
 
         if (label_length > DNS_MAX_LABEL_LENGTH || 
-            name_length > DNS_MAX_TOKEN_LENGTH || 
+            name_length > DNS_MAX_TOKEN_LENGTH - 1 || 
             label_count > DNS_MAX_LABEL_COUNT || 
             !allowedCharacterCheck(*name)) 
         {
@@ -83,7 +98,7 @@ uint8_t isValidDomainName(const char* name) {
     label_count++;
 
     if(label_length > DNS_MAX_LABEL_LENGTH || 
-        name_length > DNS_MAX_TOKEN_LENGTH || 
+        name_length > DNS_MAX_TOKEN_LENGTH - 1 || 
         label_count > DNS_MAX_LABEL_COUNT) 
     {
         return 0;

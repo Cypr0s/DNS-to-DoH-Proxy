@@ -1,0 +1,2 @@
+$ORIGIN z.test.
+@ 3600 IN SOA ns.z.test. a.z.test. abc 1 2 3 4

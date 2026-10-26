@@ -26,13 +26,6 @@ static char* getVerdict(uint8_t state);
 static char* getRcode(int8_t rcode_in);
 
 
-/**
- * @brief       Converts q to string qtype or NULL
- * 
- * @param state Input state 
- * @return      char* 
- */
-static char* getQtype(uint16_t qtype);
 
 
 /**
@@ -93,35 +86,6 @@ static char* getRcode(int8_t rcode_in) {
 
         case -1:
             return "-";
-
-        default:
-            return NULL;
-    }
-}
-
-
-static char* getQtype(uint16_t qtype) {
-    switch(qtype) {
-        case ENTRY_A:
-            return "A";
-
-        case ENTRY_AAAA:
-            return "AAAA";
-
-        case ENTRY_NS:
-            return "NS";
-
-        case ENTRY_SOA:
-            return "SOA";
-
-        case ENTRY_CNAME:
-            return "CNAME";
-
-        case ENTRY_MX:
-            return "MX";
-
-        case ENTRY_ANY:
-            return "ANY";
 
         default:
             return NULL;
@@ -202,7 +166,7 @@ void createLogLine(char* out, size_t out_size, struct sockaddr_storage* address_
     if(dns_state->flags & DNS_FLAG_PARSED_QUESTION) {
         formatQname(dns_state->query.question.question, qname, sizeof(qname));
 
-        char* type = getQtype(dns_state->query.question.qtype);
+        char* type = getZoneTypeName(dns_state->query.question.qtype);
         if(type != NULL) {
             strcpy(qtype, type);
         } else {

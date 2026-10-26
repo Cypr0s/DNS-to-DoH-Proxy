@@ -49,7 +49,7 @@ void stringListDtor(StringListPtr list) {
 }
 
 
-void stringListIterInit(StringListIteratorPtr it, StringListPtr list) {
+void stringListIterCtor(StringListIteratorPtr it, StringListPtr list) {
     it->curr = list->head;
 }
 

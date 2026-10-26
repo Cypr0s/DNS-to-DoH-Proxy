@@ -36,7 +36,7 @@ ExitStatus proxyServerCtor(ParsedArgsPtr parsed_args, ProxyServerPtr server) {
     CHECK_ERR(e);
 
     // connections
-    e = connectionVectorInit(&server->connections);
+    e = connectionVectorCtor(&server->connections);
     CHECK_ERR(e);
 
     // multi handles for proxy server
@@ -78,7 +78,7 @@ void proxyServerDtor(ProxyServerPtr server) {
     server->zone_file_root = NULL;
     hashTableDtor(&server->block_list);
     forwardCleanup(server);
-    connectionVectorClean(&server->connections);
+    connectionVectorDtor(&server->connections);
     curl_slist_free_all(server->forward_header);
     curl_multi_cleanup(server->multi_handle);
 }

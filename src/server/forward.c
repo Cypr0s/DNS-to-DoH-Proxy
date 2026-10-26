@@ -1,13 +1,44 @@
-#include "server/forward.h"
-#include "data-structures/proxy_server.h"
+/**
+ * @file    forward.c
+ * @author  Kristian Luptak
+ * @brief   Contains functions which work with forwarding dns queries
+ *          
+ * @date    2026-10-23
+ */
 
- 
+#include "server/forward.h"
+#include "data-structures/proxy-server.h"
+
+ /**
+ * @brief           Curl write callback, appends response data
+ *                  inspired by https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html
+ * 
+ * @param data      Received data
+ * @param size      Size of one element
+ * @param nmemb     Number of elements
+ * @param clientp   Forward request
+ * @return          size_t, number of bytes processed
+ */
 static size_t cb(char* data, size_t size, size_t nmemb, void* clientp);
+
+/**
+ * @brief           Sets up curl handle for DoH request
+ * 
+ * @param server    Proxy server
+ * @param req       Forward request
+ * @return          CURLcode 
+ */
 static CURLcode setupTransferHandle(ProxyServerPtr server, ForwardRequestPtr req);
+
+/**
+ * @brief       Checks if DoH response matches query
+ * 
+ * @param req   Forward request
+ * @return      uint8_t, 1 if valid, 0 otherwise
+ */
 static uint8_t isValidResponse(ForwardRequestPtr req);
 
 
-// https://curl.se/libcurl/c/CURLOPT_WRITEFUNCTION.html
 static size_t cb(char *data, size_t size, size_t nmemb, void *clientp) {
 
     ForwardRequestPtr req = clientp;
@@ -72,6 +103,7 @@ void forwardRequestDelete(ProxyServerPtr server, size_t index) {
     free(req);
 }
 
+
 static CURLcode setupTransferHandle(ProxyServerPtr server, ForwardRequestPtr req) {
     req->easy = curl_easy_init();
     if(req->easy == NULL) {
@@ -79,35 +111,33 @@ static CURLcode setupTransferHandle(ProxyServerPtr server, ForwardRequestPtr req
     }
  
     // setup curl address, data
-    CURLcode curl_exit = curl_easy_setopt(req->easy, CURLOPT_URL, server->forward_address);
+    CURLcode curl_exit = curl_easy_setopt(req->easy, CURLOPT_URL, server->forward_address); // forward url
     CHECK_CURL(curl_exit);
-    curl_exit = curl_easy_setopt(req->easy, CURLOPT_POST, 1L);
+    curl_exit = curl_easy_setopt(req->easy, CURLOPT_POST, 1L); // post req
     CHECK_CURL(curl_exit);
-    curl_exit = curl_easy_setopt(req->easy, CURLOPT_POSTFIELDS, req->query);
+    curl_exit = curl_easy_setopt(req->easy, CURLOPT_POSTFIELDS, req->query); // dns request
     CHECK_CURL(curl_exit);
-    curl_exit = curl_easy_setopt(req->easy, CURLOPT_POSTFIELDSIZE, (long)req->query_size);
+    curl_exit = curl_easy_setopt(req->easy, CURLOPT_POSTFIELDSIZE, (long)req->query_size); // dns request size
     CHECK_CURL(curl_exit);
     curl_exit = curl_easy_setopt(req->easy, CURLOPT_HTTPHEADER, server->forward_header);
     CHECK_CURL(curl_exit);
-    curl_exit = curl_easy_setopt(req->easy, CURLOPT_WRITEFUNCTION, cb);
+    curl_exit = curl_easy_setopt(req->easy, CURLOPT_WRITEFUNCTION, cb); // write func callback
     CHECK_CURL(curl_exit);
-    curl_exit = curl_easy_setopt(req->easy, CURLOPT_WRITEDATA, req);
+    curl_exit = curl_easy_setopt(req->easy, CURLOPT_WRITEDATA, req); // bufer
     CHECK_CURL(curl_exit);
     // util
-    curl_exit = curl_easy_setopt(req->easy, CURLOPT_PRIVATE, req);
+    curl_exit = curl_easy_setopt(req->easy, CURLOPT_PRIVATE, req); // add associated request
     CHECK_CURL(curl_exit);
-    curl_exit = curl_easy_setopt(req->easy, CURLOPT_TIMEOUT, (long)server->forward_timeout);
+    curl_exit = curl_easy_setopt(req->easy, CURLOPT_TIMEOUT, (long)server->forward_timeout); // timeout
     CHECK_CURL(curl_exit);
-    curl_exit = curl_easy_setopt(req->easy, CURLOPT_FOLLOWLOCATION, 0L);
-    CHECK_CURL(curl_exit);
-    curl_exit = curl_easy_setopt(req->easy, CURLOPT_NOSIGNAL, 1L);
+    curl_exit = curl_easy_setopt(req->easy, CURLOPT_FOLLOWLOCATION, 0L); // ignore 3xx codes
     CHECK_CURL(curl_exit);
     // insecure
     char* ca_file = getenv("SSL_CERT_FILE");
     if(server->insecure) {
-        curl_exit = curl_easy_setopt(req->easy, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_exit = curl_easy_setopt(req->easy, CURLOPT_SSL_VERIFYPEER, 0L); // dont verify cert
         CHECK_CURL(curl_exit);
-        curl_exit = curl_easy_setopt(req->easy, CURLOPT_SSL_VERIFYHOST, 0L);
+        curl_exit = curl_easy_setopt(req->easy, CURLOPT_SSL_VERIFYHOST, 0L); // deont verify host
         CHECK_CURL(curl_exit);
     } else if(ca_file != NULL && ca_file[0] != '\0') {
         curl_exit = curl_easy_setopt(req->easy, CURLOPT_CAINFO, ca_file);
@@ -156,12 +186,14 @@ static uint8_t isValidResponse(ForwardRequestPtr req) {
         return 0;
     }
 
+    // compare question
     size_t name_size = qsize - 4;
     for(size_t i = 0; i < name_size; i++) {
         if(tolower(req->query[DNS_QUERY_MIN_LENGHT + i]) != tolower(req->response[DNS_QUERY_MIN_LENGHT + i])) {
             return 0;
         }
     }
+    // compare question type and class
     return memcmp(req->query + DNS_QUERY_MIN_LENGHT + name_size, req->response + DNS_QUERY_MIN_LENGHT + name_size, 4) == 0;
 }
 

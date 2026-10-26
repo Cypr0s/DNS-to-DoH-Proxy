@@ -1,3 +1,11 @@
+/**
+ * @file    zonefile.h
+ * @author  Kristian Luptak
+ * @brief   Contains declarations of parsing of zone files
+ *          
+ * @date    2026-10-23
+ */
+
 #ifndef PARSING_ZONEFILE_H
 #define PARSING_ZONEFILE_H
 
@@ -36,6 +44,18 @@ typedef struct {
     ZoneEntryEnum value;
 } ZoneTypeString;
 
+
+/**
+ * @brief           Parses all zone files into tree
+ * 
+ * @param zone_list List of zone file names
+ * @param root      Zone tree root
+ * @return          ExitStatus 
+ */
 ExitStatus parseZoneList(StringListPtr zone_list, ZoneFileListTreePtr root);
+
+char* getZoneTypeName(uint16_t qtype);
+
+uint8_t isSupportedQType(uint16_t qtype);
 
 #endif // PARSING_ZONEFILE_H

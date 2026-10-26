@@ -1,16 +1,47 @@
+/**
+ * @file    socket.c
+ * @author  Kristian Luptak
+ * @brief   Contains functions for working with sockets
+ *          
+ * @date    2026-10-23
+ */
+
 #include "server/socket.h"
 
-ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
+/**
+ * @brief       Creates non-blocking socket
+ * 
+ * @param t     Transport type (UDP/TCP)
+ * @param n     Network type (IPv4/IPv6/both)
+ * @param fd    Output file descriptor
+ * @return      ExitStatus 
+ */
+static ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd);
+
+/**
+ * @brief           Binds socket to address and port, starts listening for TCP
+ * 
+ * @param fd        Socket file descriptor
+ * @param address   Local address, NULL for any
+ * @param port      Local port
+ * @param n         Network type (IPv4/IPv6/both)
+ * @param t         Transport type (UDP/TCP)
+ * @return          ExitStatus 
+ */
+static ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, TransportType t);
+
+
+static ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
     int8_t network_type = n == NETWORK_IPV4 ? AF_INET : AF_INET6; 
     *fd = socket(network_type, t, 0);
     if(*fd == -1) {
-        // todo
         PRINT_ERROR("Cant open socket");
         return STATUS_FAILURE;
     }
 
     int val = 0;
-    // https://stackoverflow.com/questions/22075363/dual-stack-with-one-socket
+    // dual socket
+    // taken from https://stackoverflow.com/questions/22075363/dual-stack-with-one-socket
     if(n == NETWORK_BOTH) {
         if(setsockopt(*fd, IPPROTO_IPV6, IPV6_V6ONLY, &val, sizeof(val)) < 0) {
             close(*fd);
@@ -19,7 +50,7 @@ ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
         }
     }
 
-    // https://www.ibm.com/docs/en/i/7.1.0?topic=designs-using-poll-instead-select
+    // make socket non-blocking: taken from https://www.ibm.com/docs/en/i/7.1.0?topic=designs-using-poll-instead-select
     val = 1;
     int rc = ioctl(*fd, FIONBIO, (char *)&val);
     if (rc < 0) {
@@ -27,11 +58,17 @@ ExitStatus createSocket(TransportType t, NetworkType n, int32_t* fd) {
         PRINT_ERROR("Cant make socket non-blocking");
         return STATUS_FAILURE;
     }
+
+    if(setsockopt(*fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) < 0) {
+        close(*fd);
+        PRINT_ERROR("Cant set reuse addr");
+        return STATUS_FAILURE;
+    }
     return STATUS_SUCCESS;
 }
 
 
-ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, TransportType t) {
+static ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, TransportType t) {
     int8_t network_type = n == NETWORK_IPV4 ? AF_INET : AF_INET6; 
     struct sockaddr_storage addr = {0};
 
@@ -62,12 +99,14 @@ ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, Tran
 
     socklen_t addr_len = n == NETWORK_IPV4 ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
 
-    if (bind(*fd, (struct sockaddr *)&addr, addr_len) < 0) {
-        perror("bind");
-        PRINT_ARGUMENT_PARSE_ERROR("Cant bind to address`%s`", address);
+    // bind socket
+    if(bind(*fd, (struct sockaddr *)&addr, addr_len) < 0) {
+        const char* shown = address ? address : (n == NETWORK_IPV4 ? "0.0.0.0" : "::");
+        PRINT_ARGUMENT_PARSE_ERROR("Cant bind to address `%s`", shown);
         return STATUS_EX_UNAVAIABLE;
     }
 
+    // make socket able to accept connections
     if(t == TRANSPORT_TCP) {
         if(listen(*fd, CONNECTION_REQUESTS_MAX) == -1) {
             PRINT_ERROR("Cant listen on socket");
@@ -75,6 +114,7 @@ ExitStatus bindSocket(int* fd, char* address, uint16_t port, NetworkType n, Tran
         }
     }
 
+    // print listening
     if(n == NETWORK_IPV4) {
         PRINT_LISTENING_SOCKET(address, port);
     } else {
@@ -106,6 +146,7 @@ ExitStatus prepareSockets(ParsedArgsPtr parsed_arguments, ConnectionVectorPtr co
         n = NETWORK_BOTH;
     }
 
+    // udp
     int udp_fd;
     ExitStatus e = createSocket(TRANSPORT_UDP, n, &udp_fd);
     CHECK_ERR(e);
@@ -116,6 +157,7 @@ ExitStatus prepareSockets(ParsedArgsPtr parsed_arguments, ConnectionVectorPtr co
     e = connectionVectorInsert(connections, fd, c);
     CHECK_ERR(e);
 
+    // tcp listening
     int tcp_fd;
     e = createSocket(TRANSPORT_TCP, n, &tcp_fd);
     CHECK_ERR(e);

@@ -1,4 +1,12 @@
-// todo complete this file
+/**
+ * @file    blocklist.c
+ * @author  Kristian Luptak
+ * @brief   Contains parsing of blocklists
+ *          
+ * @date    2026-10-23
+ */
+
+
 #include "parsing/blocklist.h"
 
 static const char* ignored_blocks[] = {
@@ -15,26 +23,75 @@ static const char* ignored_blocks[] = {
     "ip6-allhosts"
 };
 
-inline int8_t allowedCharacterCheck(const char c);
+
+/**
+ * @brief       Processes one blocklist token
+ * 
+ * @param token Input token
+ * @param table Hash table of blocked domains
+ * @param ctx   Blocklist context
+ * @return      ExitStatus 
+ */
 static ExitStatus processToken(char* token, HashTablePtr table, BlockListCtxPtr ctx);
+
+/**
+ * @brief       Parses blocklist file
+ * 
+ * @param fp    Opened file
+ * @param table Hash table of blocked domains
+ * @param ctx   Blocklist context
+ * @return      ExitStatus 
+ */
 static ExitStatus parseFile(FILE* fp, HashTablePtr table, BlockListCtxPtr ctx);
 
 
 
 static ExitStatus processToken(char* token, HashTablePtr table, BlockListCtxPtr ctx) {
     for(size_t i = 0; i < ARRAY_SIZE(ignored_blocks); i++) {
-        if(!strcmp(ignored_blocks[i], token)) {
+        if(!strcasecmp(ignored_blocks[i], token)) {
             ctx->flags &= ~BLOCKLIST_IS_FIRST_TOKEN;
             return STATUS_SUCCESS;
         }
     }
+    if(strchr(token, ':') && ctx->flags & BLOCKLIST_IS_FIRST_TOKEN) {
+        ctx->flags &= ~BLOCKLIST_IS_FIRST_TOKEN;
+        return STATUS_SUCCESS;
+    }
+
+    if(!strcmp(token, ".")) {
+        PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Root as blocked domain");
+        return STATUS_EX_CONFIG;
+    }
+
     // check sizes, validate characters
     if(!isValidDomainName(token)) {
-        PRINT_FILELIST_PARSE_ERROR(filename, 0, "read err");
+        PRINT_FILELIST_PARSE_ERROR(ctx->dns_context.filename, ctx->dns_context.line, "Invalid domain name");
         return STATUS_EX_CONFIG;
-    } 
+    }
 
-    stringListDestroyFree(&list);
+    uint8_t is_only_digit = 1;
+    size_t token_length = strlen(token);
+    for(size_t i = 0; i < token_length; i++) {
+        if(!isdigit(token[i]) && token[i] != '.') {
+            is_only_digit = 0;
+            break;
+        }
+    }
+
+    if(is_only_digit) {
+        ctx->flags &= ~BLOCKLIST_IS_FIRST_TOKEN;
+        return STATUS_SUCCESS;
+    }
+
+    for(size_t i = 0; i < token_length; i++) {
+        token[i] = tolower(token[i]);
+    }
+
+    if(token[token_length - 1] == '.') {
+        token[token_length - 1] = '\0';
+    }
+
+    ExitStatus e = hashTableInsert(table, token);
     CHECK_ERR(e);
     ctx->flags &= ~BLOCKLIST_IS_FIRST_TOKEN;
     return STATUS_SUCCESS;
@@ -67,13 +124,13 @@ static ExitStatus parseFile(FILE* fp, HashTablePtr table, BlockListCtxPtr ctx) {
 
 ExitStatus parseBlockList(StringListPtr block_list, HashTablePtr table) {
     StringListIterator it;
-    stringListIterInit(&it, block_list);
+    stringListIterCtor(&it, block_list);
     char* filename = stringListIterNext(&it);
     FILE* fp;
     while(filename != NULL) {
         BlockListCtx ctx = {
-            .dns_context = {.filename = filename, .line = 0, .label_count = 0, .label_length = 0, .token_length = 0},
-            .flags = BLOCKLIST_IS_FIRST_TOKEN | BLOCKLIST_IS_ONLY_NUMBERS,
+            .dns_context = {.filename = filename, .line = 0},
+            .flags = BLOCKLIST_IS_FIRST_TOKEN,
         };
         if(openFile(&fp, filename) != STATUS_SUCCESS) {
             PRINT_FILELIST_PARSE_ERROR(filename, 0, "read err");
