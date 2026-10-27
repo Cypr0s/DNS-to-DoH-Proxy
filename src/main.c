@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
         return STATUS_FAILURE;
     }
 
-    ParsedArgs parsed_args;
+    ParsedArgs parsed_args = {0};
     parsedArgsCtor(&parsed_args);
     ProxyServer server = {0};
     ExitStatus e = parseArguments(argc, argv, &parsed_args);

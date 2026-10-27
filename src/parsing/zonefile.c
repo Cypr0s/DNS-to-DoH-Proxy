@@ -898,12 +898,12 @@ static ExitStatus parseFile(FILE* fp, ZoneFileListTreePtr root, ZoneFileListCtxP
 
         ZoneEntry entry = {0};
         e = createEntry(&list, ctx, &entry);
-        CHECK_ERR_AND_FREE(e, stringListDtorFree(&list); free(line_str););
+        CHECK_ERR_AND_FREE(e, stringListDtorFree(&list); free(line_str); zoneEntryFree(&entry));
         if(ctx->flags & ZONEFILE_IS_RECORD) {
             e = insertEntry(ctx->current_owner, &entry, root, &ctx->dns_context);
         }
         stringListDtorFree(&list);
-        CHECK_ERR_AND_FREE(e, free(line_str););
+        CHECK_ERR_AND_FREE(e, free(line_str); zoneEntryFree(&entry));
         ctx->flags &= ~ZONEFILE_LEADING_WHITESPACE;
         ctx->flags &= ~ZONEFILE_IS_RECORD;
     }

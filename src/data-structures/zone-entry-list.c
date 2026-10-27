@@ -33,10 +33,32 @@ void zoneListPop(ZoneListPtr list) {
     }
 
     ZoneNodePtr tmp = list->head->next;
+    zoneEntryFree(&list->head->zone_entry);
     free(list->head);
     list->head = tmp;
 }
 
+
+void zoneEntryFree(ZoneEntryPtr zone_entry) {
+    switch(zone_entry->entry_type) {
+        case ENTRY_CNAME:
+            free(zone_entry->entry.cname_entry.cname);
+            stringListDtorFree(&zone_entry->entry.cname_entry.list);
+            break;
+        case ENTRY_MX:
+            free(zone_entry->entry.mx_entry.exchange);
+            break;
+        case ENTRY_NS:
+            free(zone_entry->entry.ns_entry.nsdname);
+            break;
+        case ENTRY_SOA:
+            free(zone_entry->entry.soa_entry.mname);
+            free(zone_entry->entry.soa_entry.rname);
+            break;
+        default:
+            break;
+    }
+}
 
 void zoneListDtor(ZoneListPtr list) {
     while(list->head != NULL) {

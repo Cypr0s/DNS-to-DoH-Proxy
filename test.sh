@@ -1,17 +1,8 @@
 #!/usr/bin/env bash
-# BEGIN AI-GENERATED CODE
-# Tool: Claude (Anthropic). Purpose: automated tests for isa-dnsproxy, one file, one section per area
-# (supporting test artifact, not part of the proxy). Listed in README "Use of AI".
-#
-# Usage: tests/run_tests.sh               run every section
-#        tests/run_tests.sh cli           only the command-line section
-#        tests/run_tests.sh blocklist     only the blocklist-parsing section
-#        tests/run_tests.sh zone          only the zone-file-parsing section
-#        tests/run_tests.sh messages      only the message-processing section (steps 1-9, headers, OPT, log, TCP)
-#        tests/run_tests.sh local         only the zone-answer section (positive/negative answers, CNAME, ANY, truncation, zone vs. blocklist)
-#        tests/run_tests.sh blocked       only the blocklist-verdict section (fake upstream must never see a blocked name)
-#        tests/run_tests.sh forward       only the DoH forwarding section (fake upstream: POST format, errors, truncation, -w, cap, shutdown, TLS)
-#        BIN=/path/to/isa-dnsproxy PORT=15353 tests/run_tests.sh   (the fake upstream uses PORT+1..PORT+3)
+# This file is AI generated
+# Tool: Claude (Anthropic).
+
+# BIN=/path/to/isa-dnsproxy PORT=15353 tests/run_tests.sh   (the fake upstream uses PORT+1..PORT+3)
 # Run it with sudo: the cli section also checks port 1 and the default port 53 (skipped without root).
 # Needs bash, python3, awk, timeout, openssl (TLS part of forward). Exit status 0 = everything passed.
 #
@@ -1710,4 +1701,3 @@ for s in $WANT; do
 done
 echo "  total      passed: $TP   failed: $TF"
 [ $TF -eq 0 ]
-# END AI-GENERATED CODE

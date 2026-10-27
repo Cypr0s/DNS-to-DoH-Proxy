@@ -248,4 +248,6 @@ ZoneEntryPtr zoneListIterNext(ZoneListIteratorPtr it);
  */
 ZoneEntryPtr getEntry(ZoneListPtr list, int8_t entry_type);
 
+void zoneEntryFree(ZoneEntryPtr zone_entry);
+
 #endif // ZONE_ENTRY_LIST_H

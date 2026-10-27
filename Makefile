@@ -28,7 +28,7 @@ test: all
 
 # zip
 zip:
-	zip -r $(ZIP_NAME).zip Makefile LICENSE CHANGELOG.md README.md src -x *.o $(TARGET)
+	zip -r $(ZIP_NAME).zip Makefile LICENSE CHANGELOG.md README.md Ai-usage.md test.sh src -x *.o $(TARGET)
 
 # debug
 debug: CFLAGS += -DDEBUG -fsanitize=address,undefined -O0 -g -Werror 
@@ -46,4 +46,4 @@ NixDevShellName:
 
 
 # rebuild
-rebuild: fclean all
+rebuild: clean all
